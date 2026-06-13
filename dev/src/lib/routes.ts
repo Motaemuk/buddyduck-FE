@@ -44,7 +44,7 @@ export const SCREEN_ROUTES: AppScreen[] = [
   { id: "CB-07C", label: "CB-07C", name: "Room Detail - Pending", href: "/rooms/pending", nav: "rooms" },
   { id: "CB-07D", label: "CB-07D", name: "Room Detail - Visitor", href: "/rooms/visitor", nav: "rooms" },
   { id: "CB-07Dprime", label: "CB-07D′", name: "Apply Modal", href: "/rooms/visitor?modal=apply", nav: "rooms" },
-  { id: "CB-08", label: "CB-08", name: "Open Chat", href: "/open-chat", nav: "rooms" },
+  { id: "CB-08", label: "CB-08", name: "Open Chat Modal", href: "/rooms/member?modal=open-chat", nav: "rooms" },
   { id: "CB-09", label: "CB-09", name: "Timeline", href: "/timeline", nav: "my" },
   { id: "CB-10", label: "CB-10", name: "Place Search", href: "/places", nav: "my" },
   { id: "CB-11", label: "CB-11", name: "Timetable Edit", href: "/timetable", nav: "my" },
@@ -65,15 +65,17 @@ export function resolveScreenFromSlug(slug: string[], searchParams: SearchParams
   const path = `/${slug.join("/")}`;
   const modal = firstParam(searchParams.modal);
 
-  if (path === "/" || path === "/home") return getScreenById("CB-03");
+  if (path === "/") return getScreenById("CB-01");
+  if (path === "/home") return getScreenById("CB-03");
   if (path === "/rooms" && modal === "tags") return getScreenById("CB-04prime");
+  if ((path === "/rooms/host" || path === "/rooms/member") && modal === "open-chat") return getScreenById("CB-08");
   if (path === "/rooms/visitor" && modal === "apply") return getScreenById("CB-07Dprime");
   if (path === "/timetable" && modal === "warning") return getScreenById("CB-11prime");
 
   const match = SCREEN_ROUTES.find((screen) => screen.href.split("?")[0] === path);
-  return match ?? getScreenById("CB-03");
+  return match ?? getScreenById("CB-01");
 }
 
-function firstParam(value: string | string[] | undefined) {
+export function firstParam(value: string | string[] | undefined) {
   return Array.isArray(value) ? value[0] : value;
 }
