@@ -1,7 +1,13 @@
-import { ScreenEntry } from "@/features/screen-entry";
-import { firstParam, type SearchParams } from "@/lib/routes";
+import { ScreenShell } from "../_components/screen-shell";
+import { firstParam, getScreenById, type SearchParams } from "../_lib/routes";
+import { RoomListScreen } from "./_components/room-list-screen";
 
 export default async function Page({ searchParams }: { searchParams: Promise<SearchParams> }) {
   const query = await searchParams;
-  return <ScreenEntry id={firstParam(query.modal) === "tags" ? "CB-04prime" : "CB-04"} />;
+  const showTagModal = firstParam(query.modal) === "tags";
+  return (
+    <ScreenShell screen={getScreenById(showTagModal ? "CB-04prime" : "CB-04")}>
+      <RoomListScreen showTagModal={showTagModal} />
+    </ScreenShell>
+  );
 }

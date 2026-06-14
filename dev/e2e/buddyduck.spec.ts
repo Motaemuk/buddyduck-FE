@@ -65,6 +65,7 @@ test.describe("BuddyDuck runtime UI", () => {
     await page.getByRole("link", { name: /Moonlight Sync Live/ }).click();
     await expect(page).toHaveURL(/\/rooms$/);
     await expect(page.getByText("이 공연에서 내 관심 태그")).toBeVisible();
+    await expect(page.getByText("설정해 둔 태그가 없습니다")).toBeVisible();
     await page.getByRole("link", { name: /편집/ }).click();
     await expect(page.getByRole("dialog", { name: "관심 태그 선택" })).toBeVisible();
     await page.keyboard.press("Escape");
@@ -94,6 +95,11 @@ test.describe("BuddyDuck runtime UI", () => {
 
   test("create room validates form and routes to host detail", async ({ page }) => {
     await page.goto("/rooms/create");
+    await expect(page.getByRole("button", { name: "방 만들기" })).toBeDisabled();
+    await page.getByRole("button", { name: "태그 추가" }).click();
+    await expect(page.getByRole("dialog", { name: "방 태그 선택" })).toBeVisible();
+    await page.getByRole("button", { name: "굿즈 줄서기" }).click();
+    await page.getByRole("button", { name: "저장 (1/4)" }).click();
     await expect(page.getByRole("button", { name: "방 만들기" })).toBeEnabled();
     await page.getByLabel("방 제목").fill("공연 전 굿즈 줄 같이 서요");
     await page.getByLabel("한 줄 소개").fill("공연 전 굿즈 수령 후 카페에서 쉬다가 같이 입장해요.");
@@ -113,20 +119,33 @@ test.describe("BuddyDuck runtime UI", () => {
     await expect(page.getByRole("link", { name: "신청 취소" })).toBeVisible();
 
     await page.goto("/rooms/visitor?modal=apply");
-    await expect(page.getByRole("dialog", { name: "동행 신청" })).toBeVisible();
+    const applyDialog = page.getByRole("dialog", { name: "동행 신청" });
+    await expect(applyDialog).toBeVisible();
+    await expect(applyDialog).toBeInViewport();
     await page.locator('[aria-label="모달 배경"]').click({ position: { x: 8, y: 8 } });
     await expect(page).toHaveURL(/\/rooms\/visitor$/);
     await page.goto("/rooms/visitor?modal=apply");
+    await expect(page.getByRole("dialog", { name: "동행 신청" })).toBeInViewport();
     await page.getByRole("dialog", { name: "동행 신청" }).getByRole("link", { name: "신청하기", exact: true }).click();
     await expect(page).toHaveURL(/\/rooms\/pending$/);
   });
 
   test("open chat is exposed as an approved room modal", async ({ page }) => {
     await page.goto("/rooms/member?modal=open-chat");
-    await expect(page.getByRole("dialog", { name: "오픈채팅 정보" })).toBeVisible();
+    const memberOpenChatDialog = page.getByRole("dialog", { name: "오픈채팅 정보" });
+    await expect(memberOpenChatDialog).toBeVisible();
+    await expect(memberOpenChatDialog).toBeInViewport();
     await expect(page.getByText("open.kakao.com/o/aBcD9XyZ")).toBeVisible();
     await page.getByRole("button", { name: "닫기" }).click();
     await expect(page).toHaveURL(/\/rooms\/member$/);
+
+    await page.goto("/rooms/host?modal=open-chat");
+    const hostOpenChatDialog = page.getByRole("dialog", { name: "오픈채팅 정보" });
+    await expect(hostOpenChatDialog).toBeVisible();
+    await expect(hostOpenChatDialog).toBeInViewport();
+    await expect(page.getByText("open.kakao.com/o/aBcD9XyZ")).toBeVisible();
+    await page.getByRole("button", { name: "닫기" }).click();
+    await expect(page).toHaveURL(/\/rooms\/host$/);
   });
 
   test("timetable edit supports steppers, place add, and warning modal", async ({ page }) => {
@@ -138,7 +157,9 @@ test.describe("BuddyDuck runtime UI", () => {
     await expect(page).toHaveURL(/\/places$/);
 
     await page.goto("/timetable?modal=warning");
-    await expect(page.getByRole("dialog", { name: "지금 일정을 전부 소화할 수 없습니다" })).toBeVisible();
+    const warningDialog = page.getByRole("dialog", { name: "지금 일정을 전부 소화할 수 없습니다" });
+    await expect(warningDialog).toBeVisible();
+    await expect(warningDialog).toBeInViewport();
     await page.getByRole("link", { name: "되돌아가서 수정" }).click();
     await expect(page).toHaveURL(/\/timetable$/);
   });
@@ -148,10 +169,16 @@ test.describe("BuddyDuck runtime UI", () => {
     await expect(page.getByText(/Kakao Maps fallback/)).toBeVisible();
     await expect(page.getByText(/NEXT_PUBLIC_KAKAO_MAP_KEY 미설정|스크립트 로딩 중 또는 실패/)).toBeVisible();
 
-    await page.goto("/profile/edit");
+    await page.goto("/profile");
+    await expect(page.getByRole("link", { name: /moon_armies/ })).toHaveAttribute("href", "/profile/edit");
+    await expect(page.getByText("추억 사진")).toHaveCount(0);
+    await page.getByRole("button", { name: /알림 설정/ }).click();
+    await expect(page.getByRole("status")).toContainText("개발중인 기능입니다");
+    await page.getByRole("link", { name: /moon_armies/ }).click();
+    await expect(page).toHaveURL(/\/profile\/edit$/);
     await page.getByLabel("닉네임").fill("newduck");
-    await page.getByLabel("소개글").fill("콘서트 동선을 같이 맞추는 것을 좋아해요.");
-    await page.locator("header").getByRole("link", { name: "저장" }).click();
+    await page.getByRole("button", { name: "30대" }).click();
+    await page.getByRole("link", { name: "저장" }).click();
     await expect(page).toHaveURL(/\/profile$/);
   });
 

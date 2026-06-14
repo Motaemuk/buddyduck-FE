@@ -1,5 +1,11 @@
-import { ScreenEntry } from "@/features/screen-entry";
+import { ScreenShell } from "../_components/screen-shell";
+import { getScreenById } from "../_lib/routes";
+import { MemoryFeedScreen } from "./_components/memory-feed-screen";
 
 export default function Page() {
-  return <ScreenEntry id="CB-13" />;
+  return (
+    <ScreenShell screen={getScreenById("CB-13")}>
+      <MemoryFeedScreen />
+    </ScreenShell>
+  );
 }

@@ -27,9 +27,10 @@
 
 ## Components
 
-- `AppShell`: centered 430px app container, page padding, safe bottom spacing, and optional bottom navigation.
-- `AppBar`: top navigation bar with centered title and left/right icon actions.
-- `BottomNav`: 3-tab app navigation for home, my rooms, and profile.
+- `app/_components/ScreenShell`: route pages wrap their co-located screen component with the centered mobile shell and route nav state.
+- `app/_components/MobileShell`: centered 430px app container, page padding, safe bottom spacing, and optional bottom navigation.
+- `AppBar`: top navigation bar with centered title and left/right icon actions, kept in `src/components/ui.tsx`.
+- `BottomNav`: 3-tab app navigation for home, my rooms, and profile, kept in `src/components/ui.tsx`.
 - `Button`: BuddyDuck wrapper over shadcn `Button`; primary, outline, kakao, danger, small, and icon variants.
 - `Chip` / `Badge` / `Tag`: selectable filters and compact metadata badges using shadcn badge-compatible styling.
 - `FormField`: shared label, input, textarea, helper, and error state patterns over shadcn form/input primitives.
@@ -42,7 +43,9 @@
 - `MapFallback`, `MapPin`, `MapPlaceCard`: Kakao Maps fallback and read-only map UI pieces.
 - `Avatar` / `MemberRow`: member identity row with host, pending, and participant states.
 - `Stepper`: compact minus/value/plus control for timetable dwell and route durations.
-- `BackButton`, `SectionTitle`, `InfoRow`: small navigation, section labeling, and compact key-value helpers used by screen patterns.
+- `BackButton`, `SectionTitle`, `InfoRow`: small navigation, section labeling, and compact key-value helpers in `app/_components/buddy-patterns.tsx`.
+- Route screen components live under `app/<route>/_components` and route-specific schemas/helpers under `app/<route>/_lib`.
+- Shared app route metadata and cross-route derived data live under `app/_lib`.
 
 ## Mock/API Boundary
 
@@ -52,11 +55,13 @@
 
 ## Screen Routing
 
-- `src/lib/routes.ts` is the authoritative registry for CB-01 through CB-14′.
+- `app/_lib/routes.ts` is the authoritative registry for CB-01 through CB-14′.
 - Prefer App Router file-based routes over `app/[[...slug]]` catch-all rendering.
+- Each `app/**/page.tsx` should directly compose `ScreenShell` with its route-local screen component; do not reintroduce `src/features/screens.tsx` or `ScreenEntry`.
 - Modal screens are represented by query states:
   - CB-04′: `/rooms?modal=tags`
   - CB-07D′: `/rooms/visitor?modal=apply`
+  - CB-08: `/rooms/member?modal=open-chat` or `/rooms/host?modal=open-chat`
   - CB-11′: `/timetable?modal=warning`
 
 ## Verification

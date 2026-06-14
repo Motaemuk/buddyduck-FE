@@ -1,5 +1,11 @@
-import { ScreenEntry } from "@/features/screen-entry";
+import { ScreenShell } from "../_components/screen-shell";
+import { getScreenById } from "../_lib/routes";
+import { TimelineScreen } from "./_components/timeline-screen";
 
 export default function Page() {
-  return <ScreenEntry id="CB-09" />;
+  return (
+    <ScreenShell screen={getScreenById("CB-09")}>
+      <TimelineScreen />
+    </ScreenShell>
+  );
 }
