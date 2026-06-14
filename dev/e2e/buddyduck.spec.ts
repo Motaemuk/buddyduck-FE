@@ -119,20 +119,33 @@ test.describe("BuddyDuck runtime UI", () => {
     await expect(page.getByRole("link", { name: "신청 취소" })).toBeVisible();
 
     await page.goto("/rooms/visitor?modal=apply");
-    await expect(page.getByRole("dialog", { name: "동행 신청" })).toBeVisible();
+    const applyDialog = page.getByRole("dialog", { name: "동행 신청" });
+    await expect(applyDialog).toBeVisible();
+    await expect(applyDialog).toBeInViewport();
     await page.locator('[aria-label="모달 배경"]').click({ position: { x: 8, y: 8 } });
     await expect(page).toHaveURL(/\/rooms\/visitor$/);
     await page.goto("/rooms/visitor?modal=apply");
+    await expect(page.getByRole("dialog", { name: "동행 신청" })).toBeInViewport();
     await page.getByRole("dialog", { name: "동행 신청" }).getByRole("link", { name: "신청하기", exact: true }).click();
     await expect(page).toHaveURL(/\/rooms\/pending$/);
   });
 
   test("open chat is exposed as an approved room modal", async ({ page }) => {
     await page.goto("/rooms/member?modal=open-chat");
-    await expect(page.getByRole("dialog", { name: "오픈채팅 정보" })).toBeVisible();
+    const memberOpenChatDialog = page.getByRole("dialog", { name: "오픈채팅 정보" });
+    await expect(memberOpenChatDialog).toBeVisible();
+    await expect(memberOpenChatDialog).toBeInViewport();
     await expect(page.getByText("open.kakao.com/o/aBcD9XyZ")).toBeVisible();
     await page.getByRole("button", { name: "닫기" }).click();
     await expect(page).toHaveURL(/\/rooms\/member$/);
+
+    await page.goto("/rooms/host?modal=open-chat");
+    const hostOpenChatDialog = page.getByRole("dialog", { name: "오픈채팅 정보" });
+    await expect(hostOpenChatDialog).toBeVisible();
+    await expect(hostOpenChatDialog).toBeInViewport();
+    await expect(page.getByText("open.kakao.com/o/aBcD9XyZ")).toBeVisible();
+    await page.getByRole("button", { name: "닫기" }).click();
+    await expect(page).toHaveURL(/\/rooms\/host$/);
   });
 
   test("timetable edit supports steppers, place add, and warning modal", async ({ page }) => {
@@ -144,7 +157,9 @@ test.describe("BuddyDuck runtime UI", () => {
     await expect(page).toHaveURL(/\/places$/);
 
     await page.goto("/timetable?modal=warning");
-    await expect(page.getByRole("dialog", { name: "지금 일정을 전부 소화할 수 없습니다" })).toBeVisible();
+    const warningDialog = page.getByRole("dialog", { name: "지금 일정을 전부 소화할 수 없습니다" });
+    await expect(warningDialog).toBeVisible();
+    await expect(warningDialog).toBeInViewport();
     await page.getByRole("link", { name: "되돌아가서 수정" }).click();
     await expect(page).toHaveURL(/\/timetable$/);
   });

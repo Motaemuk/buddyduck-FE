@@ -10,7 +10,8 @@ import { Card as ShadcnCard } from "@/components/ui/card";
 import { Input as ShadcnInput } from "@/components/ui/input";
 import { Textarea as ShadcnTextarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
-import type { AppScreen } from "@/lib/routes";
+
+export type BottomNavActive = "home" | "rooms" | "my" | "profile";
 
 const buttonVariants = cva(
   "inline-flex h-[54px] w-full items-center justify-center gap-2 rounded-[var(--r-md)] border text-[15px] font-bold transition active:scale-[0.97] disabled:cursor-not-allowed disabled:active:scale-100",
@@ -145,7 +146,10 @@ export function Modal({
   return (
     <div
       aria-label="모달 배경"
-      className="absolute inset-0 z-40 bg-black/70 backdrop-blur-[4px]"
+      className={cn(
+        "fixed inset-0 z-40 flex justify-center bg-black/70 p-3.5 backdrop-blur-[4px]",
+        position === "bottom" ? "items-end" : "items-center"
+      )}
       onClick={closeModal}
       role="presentation"
     >
@@ -153,10 +157,10 @@ export function Modal({
         aria-modal="true"
         aria-label={title}
         className={cn(
-          "absolute border border-[var(--cb-line-2)] bg-[var(--cb-surface-1)] p-4 shadow-[var(--sh-pop)]",
+          "border border-[var(--cb-line-2)] bg-[var(--cb-surface-1)] p-4 shadow-[var(--sh-pop)]",
           position === "bottom"
-            ? "sheet-enter inset-x-3.5 bottom-3.5 rounded-[var(--r-xl)]"
-            : "left-1/2 top-1/2 w-[calc(100%-32px)] -translate-x-1/2 -translate-y-1/2 rounded-[var(--r-xl)]"
+            ? "sheet-enter w-full max-w-[402px] rounded-[var(--r-xl)]"
+            : "w-[calc(100%-32px)] max-w-[398px] rounded-[var(--r-xl)]"
         )}
         onClick={(event) => event.stopPropagation()}
         role="dialog"
@@ -222,7 +226,7 @@ export function AppBar({
   );
 }
 
-export function BottomNav({ active }: { active?: AppScreen["nav"] }) {
+export function BottomNav({ active }: { active?: BottomNavActive }) {
   const tabs = [
     { key: "home", label: "홈", href: "/home", icon: Home },
     { key: "my", label: "내 방", href: "/my-rooms", icon: MessageCircle },

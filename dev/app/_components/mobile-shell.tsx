@@ -1,14 +1,13 @@
 "use client";
 
-import { BottomNav } from "./ui";
-import type { AppScreen } from "@/lib/routes";
+import { BottomNav, type BottomNavActive } from "@/components/ui";
 
 export function AppShell({
-  screen,
+  nav,
   children,
   showNav = true
 }: {
-  screen: AppScreen;
+  nav?: BottomNavActive;
   children: React.ReactNode;
   showNav?: boolean;
 }) {
@@ -16,7 +15,7 @@ export function AppShell({
     <main className="app-stage">
       <div className="screen">
         {children}
-        {showNav ? <BottomNav active={screen.nav} /> : null}
+        {showNav ? <BottomNav active={nav} /> : null}
       </div>
     </main>
   );

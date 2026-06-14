@@ -61,7 +61,7 @@ export function getScreenById(id: ScreenId) {
   return screen;
 }
 
-export function resolveScreenFromSlug(slug: string[], searchParams: SearchParams): AppScreen {
+export function resolveScreenFromSlug(slug: string[], searchParams: SearchParams): AppScreen | undefined {
   const path = `/${slug.join("/")}`;
   const modal = firstParam(searchParams.modal);
 
@@ -73,7 +73,7 @@ export function resolveScreenFromSlug(slug: string[], searchParams: SearchParams
   if (path === "/timetable" && modal === "warning") return getScreenById("CB-11prime");
 
   const match = SCREEN_ROUTES.find((screen) => screen.href.split("?")[0] === path);
-  return match ?? getScreenById("CB-01");
+  return match;
 }
 
 export function firstParam(value: string | string[] | undefined) {

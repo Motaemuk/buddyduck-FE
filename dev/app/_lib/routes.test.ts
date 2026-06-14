@@ -29,14 +29,15 @@ describe("screen route registry", () => {
   });
 
   it("maps canonical slugs and modal query states to screens", () => {
-    expect(resolveScreenFromSlug([], {}).id).toBe("CB-01");
-    expect(resolveScreenFromSlug(["unknown"], {}).id).toBe("CB-01");
-    expect(resolveScreenFromSlug(["rooms"], {}).id).toBe("CB-04");
-    expect(resolveScreenFromSlug(["rooms"], { modal: "tags" }).id).toBe("CB-04prime");
-    expect(resolveScreenFromSlug(["rooms", "member"], { modal: "open-chat" }).id).toBe("CB-08");
-    expect(resolveScreenFromSlug(["rooms", "visitor"], { modal: "apply" }).id).toBe("CB-07Dprime");
-    expect(resolveScreenFromSlug(["timetable"], { modal: "warning" }).id).toBe("CB-11prime");
-    expect(resolveScreenFromSlug(["profile", "edit"], {}).id).toBe("CB-14prime");
+    expect(resolveScreenFromSlug([], {})?.id).toBe("CB-01");
+    expect(resolveScreenFromSlug(["unknown"], {})).toBeUndefined();
+    expect(resolveScreenFromSlug(["rooms"], {})?.id).toBe("CB-04");
+    expect(resolveScreenFromSlug(["rooms"], { modal: "tags" })?.id).toBe("CB-04prime");
+    expect(resolveScreenFromSlug(["rooms", "host"], { modal: "open-chat" })?.id).toBe("CB-08");
+    expect(resolveScreenFromSlug(["rooms", "member"], { modal: "open-chat" })?.id).toBe("CB-08");
+    expect(resolveScreenFromSlug(["rooms", "visitor"], { modal: "apply" })?.id).toBe("CB-07Dprime");
+    expect(resolveScreenFromSlug(["timetable"], { modal: "warning" })?.id).toBe("CB-11prime");
+    expect(resolveScreenFromSlug(["profile", "edit"], {})?.id).toBe("CB-14prime");
     expect(getScreenById("CB-12").href).toBe("/map");
   });
 });

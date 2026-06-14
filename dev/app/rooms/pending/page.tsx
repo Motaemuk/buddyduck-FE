@@ -1,5 +1,11 @@
-import { ScreenEntry } from "@/features/screen-entry";
+import { ScreenShell } from "../../_components/screen-shell";
+import { getScreenById } from "../../_lib/routes";
+import { RoomDetailScreen } from "../_components/room-detail-screen";
 
 export default function Page() {
-  return <ScreenEntry id="CB-07C" />;
+  return (
+    <ScreenShell screen={getScreenById("CB-07C")}>
+      <RoomDetailScreen mode="pending" />
+    </ScreenShell>
+  );
 }

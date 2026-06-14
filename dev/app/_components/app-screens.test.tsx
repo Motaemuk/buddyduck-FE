@@ -1,10 +1,18 @@
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { BuddyDuckApp } from "./screens";
 import { concerts } from "@/lib/data";
-import { getScreenById } from "@/lib/routes";
 import { useAppStore } from "@/store/app-store";
+import { HomeScreen } from "../home/_components/home-screen";
+import { LoginScreen } from "../login/_components/login-screen";
+import { MyRoomsScreen } from "../my-rooms/_components/my-rooms-screen";
+import { NicknameScreen } from "../nickname/_components/nickname-screen";
+import { ProfileEditScreen } from "../profile/edit/_components/profile-edit-screen";
+import { ProfileScreen } from "../profile/_components/profile-screen";
+import { CreateRoomScreen } from "../rooms/create/_components/create-room-screen";
+import { RoomListScreen } from "../rooms/_components/room-list-screen";
+import { getScreenById, type ScreenId } from "../_lib/routes";
+import { ScreenShell } from "./screen-shell";
 
 vi.mock("next/navigation", () => ({
   usePathname: () => "/rooms",
@@ -12,6 +20,10 @@ vi.mock("next/navigation", () => ({
     push: vi.fn()
   })
 }));
+
+function renderInShell(screenId: ScreenId, children: React.ReactNode) {
+  return <ScreenShell screen={getScreenById(screenId)}>{children}</ScreenShell>;
+}
 
 function renderWithConcerts(ui: React.ReactElement) {
   const queryClient = new QueryClient({
@@ -42,7 +54,7 @@ describe("BuddyDuckApp screens", () => {
   });
 
   it("renders CB-01 as the Kakao login entry screen", () => {
-    render(<BuddyDuckApp screen={getScreenById("CB-01")} />);
+    render(renderInShell("CB-01", <LoginScreen />));
 
     expect(screen.getByText("BuddyDuck")).toBeInTheDocument();
     expect(screen.getByText(/덕메를 찾고,/)).toBeInTheDocument();
@@ -53,7 +65,7 @@ describe("BuddyDuckApp screens", () => {
   });
 
   it("requires nickname, age, and gender before enabling CB-02 completion", async () => {
-    render(<BuddyDuckApp screen={getScreenById("CB-02")} />);
+    render(renderInShell("CB-02", <NicknameScreen />));
 
     expect(screen.getByRole("button", { name: "완료" })).toBeDisabled();
     expect(screen.queryByRole("button", { name: "비공개" })).not.toBeInTheDocument();
@@ -70,7 +82,7 @@ describe("BuddyDuckApp screens", () => {
   });
 
   it("filters CB-03 concerts by search text and category", () => {
-    renderWithConcerts(<BuddyDuckApp screen={getScreenById("CB-03")} />);
+    renderWithConcerts(renderInShell("CB-03", <HomeScreen />));
 
     expect(screen.getByText("공연 찾기")).toBeInTheDocument();
     const search = screen.getByRole("searchbox", { name: "공연 검색" });
@@ -91,7 +103,7 @@ describe("BuddyDuckApp screens", () => {
   });
 
   it("renders CB-03 bottom navigation with home, my room, and profile only", () => {
-    renderWithConcerts(<BuddyDuckApp screen={getScreenById("CB-03")} />);
+    renderWithConcerts(renderInShell("CB-03", <HomeScreen />));
 
     const nav = screen.getByRole("navigation");
     expect(nav).toHaveTextContent("홈");
@@ -101,7 +113,7 @@ describe("BuddyDuckApp screens", () => {
   });
 
   it("renders CB-04 as the hi-fi room list with an empty interest tag state and fixed create action", () => {
-    renderWithConcerts(<BuddyDuckApp screen={getScreenById("CB-04")} />);
+    renderWithConcerts(renderInShell("CB-04", <RoomListScreen />));
 
     expect(screen.getByText("Stadium Tour - Night 1")).toBeInTheDocument();
     expect(screen.getByText("이 공연에서 내 관심 태그")).toBeInTheDocument();
@@ -117,7 +129,7 @@ describe("BuddyDuckApp screens", () => {
   });
 
   it("renders CB-04prime tag modal and prevents selecting more than five tags", () => {
-    renderWithConcerts(<BuddyDuckApp screen={getScreenById("CB-04prime")} />);
+    renderWithConcerts(renderInShell("CB-04prime", <RoomListScreen showTagModal />));
 
     expect(screen.getByRole("dialog", { name: "관심 태그 선택" })).toBeInTheDocument();
     expect(screen.getByText("최대 5개까지 선택 · 사전 정의된 태그에서 골라요")).toBeInTheDocument();
@@ -136,7 +148,7 @@ describe("BuddyDuckApp screens", () => {
   });
 
   it("renders CB-05 as the hi-fi create room form and reuses the tag modal selector", () => {
-    renderWithConcerts(<BuddyDuckApp screen={getScreenById("CB-05")} />);
+    renderWithConcerts(renderInShell("CB-05", <CreateRoomScreen />));
 
     expect(screen.getByText(/방장 승인/)).toBeInTheDocument();
     const concertInput = screen.getByLabelText("공연");
@@ -181,7 +193,7 @@ describe("BuddyDuckApp screens", () => {
   });
 
   it("renders CB-06 as the hi-fi my rooms list with status filters and time sorting", () => {
-    renderWithConcerts(<BuddyDuckApp screen={getScreenById("CB-06")} />);
+    renderWithConcerts(renderInShell("CB-06", <MyRoomsScreen />));
 
     expect(screen.getByRole("heading", { name: "내 방" })).toBeInTheDocument();
     const filterGroup = screen.getByRole("group", { name: "내 방 상태 필터" });
@@ -227,7 +239,7 @@ describe("BuddyDuckApp screens", () => {
   it("renders CB-14 profile with edit and my-room routing plus WIP feedback", () => {
     vi.useFakeTimers();
     try {
-      renderWithConcerts(<BuddyDuckApp screen={getScreenById("CB-14")} />);
+      renderWithConcerts(renderInShell("CB-14", <ProfileScreen />));
 
       expect(screen.getByRole("heading", { name: "프로필" })).toBeInTheDocument();
       expect(screen.getByRole("link", { name: /moon_armies/ })).toHaveAttribute("href", "/profile/edit");
@@ -254,7 +266,7 @@ describe("BuddyDuckApp screens", () => {
   });
 
   it("renders CB-14prime profile edit with nickname, age, gender, and bottom save", () => {
-    renderWithConcerts(<BuddyDuckApp screen={getScreenById("CB-14prime")} />);
+    renderWithConcerts(renderInShell("CB-14prime", <ProfileEditScreen />));
 
     expect(screen.getByRole("heading", { name: "프로필 수정" })).toBeInTheDocument();
     expect(screen.getByLabelText("닉네임")).toHaveValue("moon_armies");
