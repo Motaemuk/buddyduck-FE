@@ -26,7 +26,7 @@ function DialogContent({ className, children, ...props }: React.ComponentProps<t
         {...props}
       >
         {children}
-        <DialogPrimitive.Close className="absolute right-3 top-3 grid h-8 w-8 place-items-center rounded-full bg-[var(--cb-surface-2)] text-[var(--cb-text-2)]">
+        <DialogPrimitive.Close className="absolute right-3 top-3 grid h-8 w-8 place-items-center rounded-full bg-[var(--cb-surface-2)] text-[var(--cb-text-2)] transition duration-150 hover:bg-[var(--cb-surface-3)] hover:text-[var(--cb-text)] active:scale-95 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--cb-yellow)]">
           <X size={17} />
           <span className="sr-only">닫기</span>
         </DialogPrimitive.Close>

@@ -60,6 +60,14 @@
 
 * {
   box-sizing: border-box;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+*::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+  display: none;
 }
 
 html,
@@ -127,6 +135,27 @@ button {
   box-shadow: var(--sh-card);
 }
 
+.interactive-surface-card {
+  transition:
+    border-color 150ms ease,
+    background-color 150ms ease,
+    box-shadow 150ms ease,
+    transform 150ms ease;
+}
+
+.group:hover .interactive-surface-card,
+.interactive-surface-card:hover {
+  border-color: var(--cb-line-2);
+  background: var(--cb-surface-2);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, .04) inset, 0 16px 34px -18px rgba(0, 0, 0, .8);
+  transform: translateY(-2px);
+}
+
+.group:active .interactive-surface-card,
+.interactive-surface-card:active {
+  transform: translateY(0) scale(.99);
+}
+
 .ph {
   position: relative;
   overflow: hidden;
@@ -184,6 +213,33 @@ button {
     radial-gradient(340px 240px at 50% 18%, rgba(253, 190, 13, 0.16), transparent 64%),
     radial-gradient(260px 180px at 88% 8%, rgba(255, 210, 63, 0.08), transparent 62%),
     linear-gradient(180deg, #121214 0%, var(--cb-bg) 58%);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 1ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: 1ms !important;
+  }
+
+  .group:hover .interactive-surface-card,
+  .group:active .interactive-surface-card,
+  .interactive-surface-card:hover,
+  .interactive-surface-card:active {
+    transform: none;
+  }
+
+  [class*="active:scale"]:active,
+  [class*="active:translate"]:active,
+  [class*="hover:-translate"]:hover,
+  [class*="hover:translate"]:hover,
+  [class*="group-hover"][class*="scale"],
+  [class*="group-hover"][class*="translate"] {
+    transform: none !important;
+  }
 }
 
 @keyframes shimmer {

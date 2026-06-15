@@ -2,9 +2,9 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Pencil, Plus, Share2 } from "lucide-react";
+import { Pencil, Plus } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { AppBar, Button, Skeleton } from "@/components/ui";
+import { AppBar, Skeleton } from "@/components/ui";
 import { BackButton, Badge, RoomCard } from "../../_components/buddy-patterns";
 import { useRooms } from "@/lib/api";
 import { rooms as fallbackRooms } from "@/lib/data";
@@ -54,11 +54,6 @@ export function RoomListScreen({ showTagModal = false }: { showTagModal?: boolea
       <AppBar
         title="Stadium Tour - Night 1"
         left={<BackButton href="/home" />}
-        right={
-          <Button size="icon" variant="outline" aria-label="공유">
-            <Share2 size={18} />
-          </Button>
-        }
       />
       <div className="relative flex min-h-0 flex-1 flex-col">
         <div className={cn("ph h-[140px]", showTagModal && "blur-[2px]")}>
@@ -78,7 +73,7 @@ export function RoomListScreen({ showTagModal = false }: { showTagModal?: boolea
         >
           <div className="flex items-center justify-between text-[12.5px] font-semibold">
             <span>이 공연에서 내 관심 태그</span>
-            <Link href="/rooms?modal=tags" className="flex items-center gap-1 text-[12px] font-semibold text-[var(--cb-yellow)]">
+            <Link href="/rooms?modal=tags" className="flex items-center gap-1 rounded-[var(--r-sm)] text-[12px] font-semibold text-[var(--cb-yellow)] transition duration-150 hover:text-[var(--cb-yellow-2)] active:scale-95 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--cb-yellow)]">
               편집 <Pencil size={13} />
             </Link>
           </div>
@@ -99,10 +94,10 @@ export function RoomListScreen({ showTagModal = false }: { showTagModal?: boolea
             <button
               aria-pressed={activeSort === option}
               className={cn(
-                "inline-flex h-8 shrink-0 items-center rounded-[var(--r-pill)] border px-[13px] text-[12px] font-semibold transition active:scale-[0.97]",
+                "inline-flex h-8 shrink-0 items-center rounded-[var(--r-pill)] border px-[13px] text-[12px] font-semibold transition duration-150 active:scale-[0.97] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--cb-yellow)]",
                 activeSort === option
-                  ? "border-[var(--cb-yellow)] bg-[var(--cb-yellow)] text-[var(--cb-on-yellow)]"
-                  : "border-[var(--cb-line)] bg-[var(--cb-surface-2)] text-[var(--cb-text-2)]"
+                  ? "border-[var(--cb-yellow)] bg-[var(--cb-yellow)] text-[var(--cb-on-yellow)] hover:bg-[var(--cb-yellow-2)]"
+                  : "border-[var(--cb-line)] bg-[var(--cb-surface-2)] text-[var(--cb-text-2)] hover:border-[var(--cb-line-2)] hover:bg-[var(--cb-surface-3)] hover:text-[var(--cb-text)]"
               )}
               key={option}
               onClick={() => setActiveSort(option)}
@@ -122,7 +117,7 @@ export function RoomListScreen({ showTagModal = false }: { showTagModal?: boolea
       </div>
       <Link
         href="/rooms/create"
-        className="fixed bottom-[84px] z-30 grid h-[58px] w-[58px] place-items-center rounded-full bg-[var(--cb-yellow)] text-[var(--cb-on-yellow)] shadow-[0_12px_28px_-8px_rgba(253,190,13,.6)] transition active:scale-[0.97]"
+        className="fixed bottom-[84px] z-30 grid h-[58px] w-[58px] place-items-center rounded-full bg-[var(--cb-yellow)] text-[var(--cb-on-yellow)] shadow-[0_12px_28px_-8px_rgba(253,190,13,.6)] transition duration-150 hover:bg-[var(--cb-yellow-2)] active:scale-[0.97] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--cb-yellow)]"
         style={{ right: "max(18px, calc((100vw - 430px) / 2 + 18px))" }}
         aria-label="방 만들기"
       >
@@ -153,13 +148,13 @@ function InterestTagModal({
       actions={
         <>
           <Link
-            className="inline-flex h-[50px] items-center justify-center rounded-[var(--r-md)] border border-[var(--cb-line-2)] bg-[var(--cb-surface-2)] text-[14px] font-bold text-[var(--cb-text)] transition active:scale-[0.97]"
+            className="inline-flex h-[50px] items-center justify-center rounded-[var(--r-md)] border border-[var(--cb-line-2)] bg-[var(--cb-surface-2)] text-[14px] font-bold text-[var(--cb-text)] transition duration-150 hover:bg-[var(--cb-surface-3)] active:scale-[0.97] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--cb-yellow)]"
             href="/rooms"
           >
             취소
           </Link>
           <Link
-            className="inline-flex h-[50px] items-center justify-center rounded-[var(--r-md)] border border-[var(--cb-yellow)] bg-[var(--cb-yellow)] text-[14px] font-bold text-[var(--cb-on-yellow)] shadow-[var(--sh-glow)] transition active:scale-[0.97]"
+            className="inline-flex h-[50px] items-center justify-center rounded-[var(--r-md)] border border-[var(--cb-yellow)] bg-[var(--cb-yellow)] text-[14px] font-bold text-[var(--cb-on-yellow)] shadow-[var(--sh-glow)] transition duration-150 hover:bg-[var(--cb-yellow-2)] active:scale-[0.97] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--cb-yellow)]"
             href="/rooms"
           >
             저장 ({selectedTags.length}/{MAX_INTEREST_TAGS})

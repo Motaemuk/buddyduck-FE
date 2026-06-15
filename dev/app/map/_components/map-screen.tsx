@@ -1,65 +1,62 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { Settings2 } from "lucide-react";
-import { AppBar, Button, Chip } from "@/components/ui";
-import { BackButton, MapFallback, MapPin as MapPinMarker, MapPlaceCard } from "../../_components/buddy-patterns";
-import { getKakaoMapKey, loadKakaoMap, type KakaoMapState } from "@/lib/kakao-map";
-import { timetableStops } from "@/lib/data";
+import { AppBar } from "@/components/ui";
+import { BackButton, MapPlaceCard, RouteMapCanvas } from "../../_components/buddy-patterns";
+import { type TimelineDay } from "@/lib/data";
 import { useAppStore } from "@/store/app-store";
 
 export function MapScreen() {
-  const [state, setState] = useState<KakaoMapState>("loading");
-  const { selectedMapStop, setSelectedMapStop } = useAppStore();
-  const selected = timetableStops[selectedMapStop - 1] ?? timetableStops[1];
+  const timelineStopsByDay = useAppStore((state) => state.timelineStopsByDay);
+  const activeDay = useAppStore((state) => state.activeTimelineDay);
+  const activeStopId = useAppStore((state) => state.activeStopId);
+  const selectedStopId = useAppStore((state) => state.selectedStopId);
+  const setActiveTimelineDay = useAppStore((state) => state.setActiveTimelineDay);
+  const selectStoreStop = useAppStore((state) => state.selectStop);
+  const hoverStop = useAppStore((state) => state.hoverStop);
+  const currentStops = timelineStopsByDay[activeDay];
+  const currentSelectedStopId = currentStops.some((stop) => stop.id === selectedStopId) ? selectedStopId : currentStops[0]?.id ?? "";
+  const selected = currentStops.find((stop) => stop.id === currentSelectedStopId) ?? currentStops[0];
+  const selectedIndex = currentStops.findIndex((stop) => stop.id === currentSelectedStopId);
+  const nextStop = selectedIndex >= 0 ? currentStops[selectedIndex + 1] : undefined;
 
-  useEffect(() => {
-    loadKakaoMap().then(setState);
-  }, []);
+  const selectStop = (stopId: string) => {
+    selectStoreStop(stopId);
+  };
+
+  const moveToNextStop = () => {
+    if (!nextStop) return;
+    selectStoreStop(nextStop.id);
+  };
+
+  const changeDay = (day: TimelineDay) => {
+    setActiveTimelineDay(day);
+  };
 
   return (
     <>
       <AppBar
         title="지도"
         left={<BackButton href="/timeline" />}
-        right={
-          <Button size="icon" variant="outline" aria-label="필터">
-            <Settings2 size={18} />
-          </Button>
-        }
       />
       <div className="relative min-h-0 flex-1">
-        <div className="map-grid absolute inset-0">
-          <svg className="absolute inset-0 h-full w-full" viewBox="0 0 100 100" preserveAspectRatio="none">
-            <polyline points="18,18 42,52 68,62 60,34" fill="none" stroke="#FDBE0D" strokeWidth="0.7" strokeDasharray="2 1.6" />
-          </svg>
-          {[
-            [1, 18, 18],
-            [2, 42, 52],
-            [3, 68, 62],
-            [4, 60, 34]
-          ].map(([id, left, top]) => (
-            <MapPinMarker
-              key={id}
-              id={Number(id)}
-              left={Number(left)}
-              top={Number(top)}
-              selected={selectedMapStop === id}
-              onSelect={setSelectedMapStop}
-            />
-          ))}
-        </div>
-        <div className="absolute left-4 right-4 top-3 flex gap-2">
-          <Chip active>D-Day</Chip>
-          <Chip>D+1</Chip>
-        </div>
-        {state !== "ready" ? (
-          <MapFallback hasKey={Boolean(getKakaoMapKey())} />
-        ) : null}
+        <RouteMapCanvas
+          stops={currentStops}
+          selectedStopId={currentSelectedStopId}
+          activeStopId={activeStopId}
+          activeDay={activeDay}
+          onDayChange={changeDay}
+          onSelectStop={selectStop}
+          onHoverStop={hoverStop}
+          className="absolute inset-0"
+          showLabel={false}
+          full
+        />
       </div>
-      <div className="shrink-0 border-t border-[var(--cb-line)] p-4">
-        <MapPlaceCard stop={selected} />
-      </div>
+      {selected ? (
+        <div className="shrink-0 border-t border-[var(--cb-line)] p-4">
+          <MapPlaceCard stop={selected} hasNextStop={Boolean(nextStop)} onNextStop={moveToNextStop} />
+        </div>
+      ) : null}
     </>
   );
 }

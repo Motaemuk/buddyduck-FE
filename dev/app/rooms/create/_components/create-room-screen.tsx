@@ -97,7 +97,7 @@ export function CreateRoomScreen() {
               ))}
               <button
                 aria-label="태그 추가"
-                className="inline-flex items-center gap-1 rounded-[var(--r-pill)] border border-dashed border-[var(--cb-line-2)] bg-transparent px-2.5 py-1 text-[11px] font-semibold text-[var(--cb-text-2)] transition active:scale-[0.97]"
+                className="inline-flex items-center gap-1 rounded-[var(--r-pill)] border border-dashed border-[var(--cb-line-2)] bg-transparent px-2.5 py-1 text-[11px] font-semibold text-[var(--cb-text-2)] transition duration-150 hover:border-[var(--cb-yellow-line)] hover:bg-[var(--cb-yellow-dim)] hover:text-[var(--cb-yellow-2)] active:scale-[0.97] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--cb-yellow)]"
                 onClick={() => setShowTagModal(true)}
                 type="button"
               >
@@ -110,7 +110,7 @@ export function CreateRoomScreen() {
               <div className="relative">
                 <select
                   aria-label="최대 인원"
-                  className="min-h-[48px] w-full appearance-none rounded-[var(--r-md)] border border-[var(--cb-line)] bg-[var(--cb-surface-2)] px-3.5 pr-9 text-sm text-[var(--cb-text)] outline-none"
+                  className="min-h-[48px] w-full appearance-none rounded-[var(--r-md)] border border-[var(--cb-line)] bg-[var(--cb-surface-2)] px-3.5 pr-9 text-sm text-[var(--cb-text)] outline-none transition duration-150 hover:border-[var(--cb-line-2)] focus:border-[var(--cb-yellow-line)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--cb-yellow)]"
                   onChange={(event) => setMaxMembers(Number(event.target.value))}
                   value={maxMembers}
                 >
@@ -126,7 +126,7 @@ export function CreateRoomScreen() {
             <CreateRoomField label="1박 일정">
               <button
                 aria-pressed={hasOvernight}
-                className="flex min-h-[48px] w-full items-center justify-between rounded-[var(--r-md)] border border-[var(--cb-line)] bg-[var(--cb-surface-2)] px-3.5 text-left text-sm text-[var(--cb-text)]"
+                className="flex min-h-[48px] w-full items-center justify-between rounded-[var(--r-md)] border border-[var(--cb-line)] bg-[var(--cb-surface-2)] px-3.5 text-left text-sm text-[var(--cb-text)] transition duration-150 hover:border-[var(--cb-line-2)] hover:bg-[var(--cb-surface-3)] active:scale-[0.99] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--cb-yellow)]"
                 onClick={() => setHasOvernight((value) => !value)}
                 type="button"
               >
@@ -180,14 +180,14 @@ export function CreateRoomScreen() {
             actions={
               <>
                 <button
-                  className="inline-flex h-[50px] items-center justify-center rounded-[var(--r-md)] border border-[var(--cb-line-2)] bg-[var(--cb-surface-2)] text-[14px] font-bold text-[var(--cb-text)] transition active:scale-[0.97]"
+                  className="inline-flex h-[50px] items-center justify-center rounded-[var(--r-md)] border border-[var(--cb-line-2)] bg-[var(--cb-surface-2)] text-[14px] font-bold text-[var(--cb-text)] transition duration-150 hover:bg-[var(--cb-surface-3)] active:scale-[0.97] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--cb-yellow)]"
                   onClick={closeTagModal}
                   type="button"
                 >
                   취소
                 </button>
                 <button
-                  className="inline-flex h-[50px] items-center justify-center rounded-[var(--r-md)] border border-[var(--cb-yellow)] bg-[var(--cb-yellow)] text-[14px] font-bold text-[var(--cb-on-yellow)] shadow-[var(--sh-glow)] transition active:scale-[0.97]"
+                  className="inline-flex h-[50px] items-center justify-center rounded-[var(--r-md)] border border-[var(--cb-yellow)] bg-[var(--cb-yellow)] text-[14px] font-bold text-[var(--cb-on-yellow)] shadow-[var(--sh-glow)] transition duration-150 hover:bg-[var(--cb-yellow-2)] active:scale-[0.97] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--cb-yellow)]"
                   onClick={closeTagModal}
                   type="button"
                 >

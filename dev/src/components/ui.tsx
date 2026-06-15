@@ -2,8 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { forwardRef, useEffect } from "react";
-import { cva, type VariantProps } from "class-variance-authority";
+import { forwardRef, useCallback, useEffect } from "react";
 import { Home, MessageCircle, UserRound, X } from "lucide-react";
 import { Button as ShadcnButton } from "@/components/ui/button";
 import { Card as ShadcnCard } from "@/components/ui/card";
@@ -12,41 +11,25 @@ import { Textarea as ShadcnTextarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 
 export type BottomNavActive = "home" | "rooms" | "my" | "profile";
-
-const buttonVariants = cva(
-  "inline-flex h-[54px] w-full items-center justify-center gap-2 rounded-[var(--r-md)] border text-[15px] font-bold transition active:scale-[0.97] disabled:cursor-not-allowed disabled:active:scale-100",
-  {
-    variants: {
-      variant: {
-        primary: "border-[var(--cb-yellow)] bg-[var(--cb-yellow)] text-[var(--cb-on-yellow)] shadow-[var(--sh-glow)] hover:bg-[var(--cb-yellow-2)]",
-        outline: "border-[var(--cb-line-2)] bg-[var(--cb-surface-2)] text-[var(--cb-text)] hover:bg-[var(--cb-surface-3)]",
-        kakao: "border-[#FEE500] bg-[#FEE500] text-[#191600]",
-        danger: "border-[rgba(255,107,91,.35)] bg-[rgba(255,107,91,.14)] text-[var(--cb-danger)]"
-      },
-      size: {
-        md: "h-[54px]",
-        sm: "h-[42px] text-[13px]",
-        icon: "h-[38px] w-[38px] rounded-full p-0"
-      }
-    },
-    defaultVariants: {
-      variant: "primary",
-      size: "md"
-    }
-  }
-);
+type BuddyButtonVariant = "primary" | "outline" | "kakao" | "danger";
+type BuddyButtonSize = "md" | "sm" | "icon";
 
 export function Button({
   className,
-  variant,
-  size,
+  variant = "primary",
+  size = "md",
+  asChild,
   ...props
-}: React.ButtonHTMLAttributes<HTMLButtonElement> & VariantProps<typeof buttonVariants>) {
+}: Omit<React.ComponentProps<typeof ShadcnButton>, "variant" | "size"> & {
+  variant?: BuddyButtonVariant;
+  size?: BuddyButtonSize;
+}) {
   const shadcnVariant = variant === "primary" ? "default" : variant === "danger" ? "destructive" : variant;
   const shadcnSize = size === "md" ? "default" : size;
   return (
     <ShadcnButton
-      className={cn(buttonVariants({ variant, size }), className)}
+      asChild={asChild}
+      className={cn(size !== "icon" && "w-full", className)}
       variant={shadcnVariant as React.ComponentProps<typeof ShadcnButton>["variant"]}
       size={shadcnSize as React.ComponentProps<typeof ShadcnButton>["size"]}
       {...props}
@@ -63,10 +46,10 @@ export function Chip({
   return (
     <button
       className={cn(
-        "inline-flex h-[34px] shrink-0 items-center gap-1 rounded-[var(--r-pill)] border px-3.5 text-[12.5px] font-medium transition duration-150 active:scale-[0.97]",
+        "inline-flex h-[34px] shrink-0 items-center gap-1 rounded-[var(--r-pill)] border px-3.5 text-[12.5px] font-medium transition duration-150 active:scale-[0.97] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--cb-yellow)] disabled:cursor-not-allowed disabled:opacity-45 disabled:active:scale-100 disabled:focus-visible:outline-none",
         active
-          ? "border-[var(--cb-yellow)] bg-[var(--cb-yellow)] font-bold text-[var(--cb-on-yellow)]"
-          : "border-[var(--cb-line)] bg-[var(--cb-surface-2)] text-[var(--cb-text-2)]",
+          ? "border-[var(--cb-yellow)] bg-[var(--cb-yellow)] font-bold text-[var(--cb-on-yellow)] hover:bg-[var(--cb-yellow-2)]"
+          : "border-[var(--cb-line)] bg-[var(--cb-surface-2)] text-[var(--cb-text-2)] hover:border-[var(--cb-line-2)] hover:bg-[var(--cb-surface-3)] hover:text-[var(--cb-text)]",
         className
       )}
       {...props}
@@ -121,19 +104,23 @@ export function Modal({
   title,
   children,
   onClose,
-  position = "bottom"
+  position = "bottom",
+  hideHeader = false,
+  className
 }: {
   title: string;
-  children: React.ReactNode;
+  children: React.ReactNode | ((closeModal: () => void) => React.ReactNode);
   onClose?: () => void;
   position?: "bottom" | "center";
+  hideHeader?: boolean;
+  className?: string;
 }) {
   const router = useRouter();
   const pathname = usePathname();
-  const closeModal = () => {
+  const closeModal = useCallback(() => {
     onClose?.();
     router.push(pathname);
-  };
+  }, [onClose, pathname, router]);
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -141,7 +128,9 @@ export function Modal({
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  });
+  }, [closeModal]);
+
+  const content = typeof children === "function" ? children(closeModal) : children;
 
   return (
     <div
@@ -160,24 +149,27 @@ export function Modal({
           "border border-[var(--cb-line-2)] bg-[var(--cb-surface-1)] p-4 shadow-[var(--sh-pop)]",
           position === "bottom"
             ? "sheet-enter w-full max-w-[402px] rounded-[var(--r-xl)]"
-            : "w-[calc(100%-32px)] max-w-[398px] rounded-[var(--r-xl)]"
+            : "w-[calc(100%-32px)] max-w-[398px] rounded-[var(--r-xl)]",
+          className
         )}
         onClick={(event) => event.stopPropagation()}
         role="dialog"
       >
         {position === "bottom" ? <div className="mx-auto mb-3 h-1 w-10 rounded-full bg-[var(--cb-surface-3)]" /> : null}
-        <div className="mb-3 flex items-start justify-between gap-3">
-          <h2 className="text-[15px] font-bold">{title}</h2>
-          <button
-            aria-label="닫기"
-            className="grid h-8 w-8 place-items-center rounded-full bg-[var(--cb-surface-2)] text-[var(--cb-text-2)]"
-            onClick={closeModal}
-            type="button"
-          >
-            <X size={17} />
-          </button>
-        </div>
-        {children}
+        {hideHeader ? null : (
+          <div className="mb-3 flex items-start justify-between gap-3">
+            <h2 className="text-[15px] font-bold">{title}</h2>
+            <button
+              aria-label="닫기"
+              className="grid h-8 w-8 place-items-center rounded-full bg-[var(--cb-surface-2)] text-[var(--cb-text-2)] transition duration-150 hover:bg-[var(--cb-surface-3)] hover:text-[var(--cb-text)] active:scale-95 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--cb-yellow)]"
+              onClick={closeModal}
+              type="button"
+            >
+              <X size={17} />
+            </button>
+          </div>
+        )}
+        {content}
       </section>
     </div>
   );
@@ -242,7 +234,7 @@ export function BottomNav({ active }: { active?: BottomNavActive }) {
             key={tab.key}
             href={tab.href}
             className={cn(
-              "flex flex-1 flex-col items-center justify-center gap-1 text-[10.5px] font-semibold transition",
+              "flex flex-1 flex-col items-center justify-center gap-1 text-[10.5px] font-semibold transition duration-150 hover:bg-[var(--cb-surface-2)] hover:text-[var(--cb-yellow-2)] active:scale-[0.98] focus-visible:outline focus-visible:outline-2 focus-visible:outline-inset focus-visible:outline-[var(--cb-yellow)]",
               active === tab.key ? "text-[var(--cb-yellow)]" : "text-[var(--cb-text-3)]"
             )}
           >
@@ -258,19 +250,33 @@ export function BottomNav({ active }: { active?: BottomNavActive }) {
 export function Stepper({
   value,
   onMinus,
-  onPlus
+  onPlus,
+  minusLabel = "감소",
+  plusLabel = "증가"
 }: {
   value: string;
   onMinus?: () => void;
   onPlus?: () => void;
+  minusLabel?: string;
+  plusLabel?: string;
 }) {
   return (
-    <div className="inline-flex h-[34px] items-center gap-1 rounded-[var(--r-pill)] border border-[var(--cb-line)] bg-[var(--cb-surface-3)] px-1">
-      <button aria-label="감소" className="grid h-[26px] w-[26px] place-items-center rounded-full" onClick={onMinus} type="button">
+    <div className="inline-flex h-[34px] items-center gap-1 rounded-[var(--r-pill)] border border-[var(--cb-line)] bg-[var(--cb-surface-3)] px-1 transition duration-150 hover:border-[var(--cb-line-2)] hover:bg-[var(--cb-surface-2)]">
+      <button
+        aria-label={minusLabel}
+        className="grid h-[26px] w-[26px] place-items-center rounded-full transition hover:bg-[var(--cb-surface-1)] hover:text-[var(--cb-yellow)] active:scale-90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[var(--cb-yellow)]"
+        onClick={onMinus}
+        type="button"
+      >
         -
       </button>
-      <span className="min-w-[54px] text-center text-xs font-bold">{value}</span>
-      <button aria-label="증가" className="grid h-[26px] w-[26px] place-items-center rounded-full" onClick={onPlus} type="button">
+      <span className="min-w-[54px] text-center text-xs font-bold transition-colors">{value}</span>
+      <button
+        aria-label={plusLabel}
+        className="grid h-[26px] w-[26px] place-items-center rounded-full transition hover:bg-[var(--cb-yellow)] hover:text-[var(--cb-on-yellow)] active:scale-90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[var(--cb-yellow)]"
+        onClick={onPlus}
+        type="button"
+      >
         +
       </button>
     </div>

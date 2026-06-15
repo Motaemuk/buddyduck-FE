@@ -1,7 +1,7 @@
 "use client";
 
-import { Camera, MoreHorizontal, Plus } from "lucide-react";
-import { AppBar, Button, Card } from "@/components/ui";
+import { Camera } from "lucide-react";
+import { AppBar, Card } from "@/components/ui";
 import { BackButton, Badge } from "../../_components/buddy-patterns";
 import { memories } from "@/lib/data";
 
@@ -11,11 +11,6 @@ export function MemoryFeedScreen() {
       <AppBar
         title="우리 방 추억"
         left={<BackButton href="/timeline" />}
-        right={
-          <Button size="icon" variant="outline" aria-label="더보기">
-            <MoreHorizontal size={18} />
-          </Button>
-        }
       />
       <div className="flex items-center justify-between border-y border-[var(--cb-line)] px-4 py-3">
         <Badge tone="yellow">그룹</Badge>
@@ -39,9 +34,6 @@ export function MemoryFeedScreen() {
           <Badge><Camera size={13} /> 사진</Badge>
           <Badge>VIDEO ≤60s</Badge>
         </div>
-        <Button>
-          <Plus size={18} /> 업로드
-        </Button>
       </div>
     </>
   );

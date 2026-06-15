@@ -95,6 +95,15 @@ Hi-Fi 디자인 파일: `design/Concert Buddy - Hi-Fi UI.html`
 - 컴포넌트 간격(gap): 6–16px (주로 **8px**, **12px**)
 - 아이콘 기본 크기: **20 × 20px** (앱바 back button: 23px)
 
+## 스크롤
+
+- 네이티브 스크롤바는 전역에서 표시하지 않는다. 세로/가로 스크롤 동작은 유지하며, 칩/탭처럼 넘치는 영역도 시각적 바 없이 터치·휠·드래그 스크롤이 가능해야 한다.
+
+## 모션
+
+- Hover/active/focus-visible micro-interaction은 150–200ms 안에서 짧게 처리한다.
+- `prefers-reduced-motion: reduce` 환경에서는 애니메이션·전환을 즉시성에 가깝게 줄이고 hover/active에서 발생하는 lift, scale, translate transform은 제거한다.
+
 ---
 
 ## 모서리 반경 (Radius)
@@ -168,6 +177,7 @@ Hi-Fi 디자인 파일: `design/Concert Buddy - Hi-Fi UI.html`
 
 - 구조: top(호스트) → 제목 → footer(메타 정보)
 - `background: --cb-surface-1`, radius `--r-lg`, `--sh-card`
+- Hover: 카드 border `--cb-line-2`, surface `--cb-surface-2`, 2px lift + shadow; 정렬 칩/FAB는 각각 `--cb-surface-3` / `--cb-yellow-2`로 반응
 
 ---
 
@@ -182,7 +192,7 @@ Hi-Fi 디자인 파일: `design/Concert Buddy - Hi-Fi UI.html`
 | CB-04′  | Tag Modal             | 태그 필터 모달            |
 | CB-05   | Create Room           | 방 개설                   |
 | CB-06   | My Rooms              | 내 방 목록                |
-| CB-07A  | Room Detail — Host    | 호스트 뷰                 |
+| CB-07A  | Room Detail — Host    | 호스트 뷰 · 승인 대기 태그 2개 요약 + 추가 태그 모달 |
 | CB-07B  | Room Detail — Member  | 멤버 뷰                   |
 | CB-07C  | Room Detail — Pending | 신청 대기 뷰              |
 | CB-07D  | Room Detail — Visitor | 비로그인/방문자 뷰        |

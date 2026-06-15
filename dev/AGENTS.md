@@ -40,8 +40,9 @@
 - `RoomCard`: room list/detail summary card.
 - `ConcertCard`: concert feed card with thumbnail, title, date, and venue metadata.
 - `TimelineBlock`: schedule/timetable segment with dwell and route duration controls.
-- `MapFallback`, `MapPin`, `MapPlaceCard`: Kakao Maps fallback and read-only map UI pieces.
+- `RouteMapCanvas`, `MapFallback`, `MapPin`, `MapPlaceCard`: shared Kakao/fallback route map, numbered pin, and read-only place detail UI pieces.
 - `Avatar` / `MemberRow`: member identity row with host, pending, and participant states.
+- `ApplicantTagsModal`: CB-07A route-local modal showing the selected applicant's full application tag list.
 - `Stepper`: compact minus/value/plus control for timetable dwell and route durations.
 - `BackButton`, `SectionTitle`, `InfoRow`: small navigation, section labeling, and compact key-value helpers in `app/_components/buddy-patterns.tsx`.
 - Route screen components live under `app/<route>/_components` and route-specific schemas/helpers under `app/<route>/_lib`.

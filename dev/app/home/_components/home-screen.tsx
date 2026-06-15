@@ -1,8 +1,8 @@
 "use client";
 
-import { ChevronDown, Search, Settings2 } from "lucide-react";
+import { Search } from "lucide-react";
 import { useMemo, useState } from "react";
-import { AppBar, Button, Chip } from "@/components/ui";
+import { AppBar, Chip } from "@/components/ui";
 import { ConcertCard } from "../../_components/buddy-patterns";
 import { concerts as fallbackConcerts } from "@/lib/data";
 
@@ -27,14 +27,7 @@ export function HomeScreen() {
 
   return (
     <>
-      <AppBar
-        left={<h1 className="text-[21px] font-bold leading-none tracking-[-.02em]">공연 찾기</h1>}
-        right={
-          <Button size="icon" variant="outline" aria-label="공연 필터">
-            <Settings2 size={18} />
-          </Button>
-        }
-      />
+      <AppBar left={<h1 className="text-[21px] font-bold leading-none tracking-[-.02em]">공연 찾기</h1>} />
       <div className="body-scroll">
         <label className="mt-2 flex h-[46px] items-center gap-2.5 rounded-[var(--r-md)] border border-[var(--cb-line)] bg-[var(--cb-surface-2)] px-3.5 text-[13.5px] text-[var(--cb-text-3)]">
           <Search size={18} aria-hidden="true" />
@@ -58,7 +51,6 @@ export function HomeScreen() {
               type="button"
             >
               {filter}
-              {filter === "지역" ? <ChevronDown size={13} /> : null}
             </Chip>
           ))}
         </div>

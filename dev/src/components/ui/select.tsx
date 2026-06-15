@@ -13,7 +13,7 @@ function SelectTrigger({ className, children, ...props }: React.ComponentProps<t
   return (
     <SelectPrimitive.Trigger
       className={cn(
-        "flex min-h-[48px] w-full items-center justify-between rounded-[var(--r-md)] border border-[var(--cb-line)] bg-[var(--cb-surface-2)] px-3.5 py-3 text-sm text-[var(--cb-text)] outline-none focus:border-[var(--cb-yellow-line)] disabled:cursor-not-allowed disabled:opacity-60",
+        "flex min-h-[48px] w-full items-center justify-between rounded-[var(--r-md)] border border-[var(--cb-line)] bg-[var(--cb-surface-2)] px-3.5 py-3 text-sm text-[var(--cb-text)] outline-none transition duration-150 hover:border-[var(--cb-line-2)] focus:border-[var(--cb-yellow-line)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--cb-yellow)] disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:border-[var(--cb-line)] disabled:focus-visible:outline-none",
         className
       )}
       {...props}
@@ -50,7 +50,7 @@ function SelectItem({ className, children, ...props }: React.ComponentProps<type
   return (
     <SelectPrimitive.Item
       className={cn(
-        "relative flex w-full cursor-default select-none items-center rounded-[var(--r-sm)] py-2 pl-8 pr-2 text-[13px] outline-none focus:bg-[var(--cb-surface-2)] data-[disabled]:pointer-events-none data-[disabled]:opacity-50",
+        "relative flex w-full cursor-default select-none items-center rounded-[var(--r-sm)] py-2 pl-8 pr-2 text-[13px] outline-none transition duration-150 focus:bg-[var(--cb-surface-2)] data-[disabled]:pointer-events-none data-[disabled]:opacity-50",
         className
       )}
       {...props}

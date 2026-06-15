@@ -101,9 +101,9 @@ export function NicknameScreen() {
         </p>
         <div className="mt-auto pt-6">
           {canComplete ? (
-            <Link href="/home">
-              <Button>완료</Button>
-            </Link>
+            <Button asChild>
+              <Link href="/home">완료</Link>
+            </Button>
           ) : (
             <Button disabled className="bg-[var(--cb-surface-2)] text-[var(--cb-text-3)] shadow-none">
               완료
