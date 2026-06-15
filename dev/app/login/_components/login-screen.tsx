@@ -27,14 +27,11 @@ export function LoginScreen() {
           <p className="mb-1 text-[11px] leading-5 text-[var(--cb-text-3)]">
             로그인 시 서비스 약관과 개인정보 처리방침에 동의합니다.
           </p>
-          <Link href="/nickname">
-            <Button variant="kakao">
+          <Button asChild variant="kakao">
+            <Link href="/nickname">
               <MessageCircle size={19} /> 카카오로 시작하기
-            </Button>
-          </Link>
-          <button className="w-full py-2 text-[13px] text-[var(--cb-text-2)] underline underline-offset-[3px]" type="button">
-            데모 로그인 (발표용)
-          </button>
+            </Link>
+          </Button>
         </div>
       </div>
     </>

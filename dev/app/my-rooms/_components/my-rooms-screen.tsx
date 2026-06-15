@@ -54,10 +54,10 @@ export function MyRoomsScreen() {
                 aria-pressed={filter === item.key}
                 key={item.key}
                 className={cn(
-                  "inline-flex h-[34px] shrink-0 items-center gap-[7px] rounded-[var(--r-pill)] border px-3.5 text-[12.5px] font-semibold transition active:scale-[0.97]",
+                  "inline-flex h-[34px] shrink-0 items-center gap-[7px] rounded-[var(--r-pill)] border px-3.5 text-[12.5px] font-semibold transition duration-150 active:scale-[0.97] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--cb-yellow)]",
                   filter === item.key
-                    ? "border-[var(--cb-yellow)] bg-[var(--cb-yellow)] text-[var(--cb-on-yellow)]"
-                    : "border-[var(--cb-line)] bg-[var(--cb-surface-2)] text-[var(--cb-text-2)]"
+                    ? "border-[var(--cb-yellow)] bg-[var(--cb-yellow)] text-[var(--cb-on-yellow)] hover:bg-[var(--cb-yellow-2)]"
+                    : "border-[var(--cb-line)] bg-[var(--cb-surface-2)] text-[var(--cb-text-2)] hover:border-[var(--cb-line-2)] hover:bg-[var(--cb-surface-3)] hover:text-[var(--cb-text)]"
                 )}
                 onClick={() => setFilter(item.key)}
                 type="button"
@@ -98,9 +98,9 @@ export function MyRoomsScreen() {
           ) : (
             <Card className="mx-4 mt-[18px] p-5 text-center">
               <p className="text-[13px] text-[var(--cb-text-2)]">아직 표시할 방이 없습니다.</p>
-              <Link href="/rooms/create" className="mt-4 block">
-                <Button>방 만들기</Button>
-              </Link>
+              <Button asChild className="mt-4">
+                <Link href="/rooms/create">방 만들기</Link>
+              </Button>
             </Card>
           )}
         </div>
@@ -111,15 +111,13 @@ export function MyRoomsScreen() {
 
 function MyRoomCard({ room }: { room: MyRoomCardModel }) {
   const isPendingOrPast = room.status === "pending" || room.status === "past";
+  const cardClassName = cn(
+    "relative mx-4 mb-3 flex gap-3 rounded-[var(--r-lg)] border border-[var(--cb-line)] bg-[var(--cb-surface-1)] p-3 shadow-[var(--sh-card)] transition duration-150 hover:border-[var(--cb-line-2)] hover:bg-[var(--cb-surface-2)] active:scale-[0.99] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--cb-yellow)]",
+    room.status === "past" && "opacity-[.62]"
+  );
 
-  return (
-    <Link
-      href={room.href}
-      className={cn(
-        "relative mx-4 mb-3 flex gap-3 rounded-[var(--r-lg)] border border-[var(--cb-line)] bg-[var(--cb-surface-1)] p-3 shadow-[var(--sh-card)] transition hover:border-[var(--cb-line-2)]",
-        room.status === "past" && "opacity-[.62]"
-      )}
-    >
+  const content = (
+    <>
       <div className="ph h-[60px] w-[60px] rounded-[var(--r-md)]">
         <span className="absolute bottom-2 left-[9px] font-mono text-[9px] font-semibold leading-none tracking-[.06em] text-white/35">
           ROOM
@@ -160,6 +158,20 @@ function MyRoomCard({ room }: { room: MyRoomCardModel }) {
           {room.countdown}
         </div>
       ) : null}
+    </>
+  );
+
+  if (!room.href) {
+    return (
+      <div className={cardClassName} aria-label={room.title}>
+        {content}
+      </div>
+    );
+  }
+
+  return (
+    <Link href={room.href} className={cardClassName}>
+      {content}
     </Link>
   );
 }
