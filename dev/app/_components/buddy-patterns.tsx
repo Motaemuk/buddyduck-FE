@@ -2,21 +2,41 @@
 
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
-import { ArrowLeft, CalendarDays, ChevronRight, Clock3, MapPin as MapPinIcon, Star, X } from "lucide-react";
+import {
+  ArrowLeft,
+  CalendarDays,
+  ChevronRight,
+  Clock3,
+  MapPin as MapPinIcon,
+  Star,
+  X,
+} from "lucide-react";
 import { Avatar, Card } from "@/components/ui";
 import { cn } from "@/lib/utils";
-import { getModeLabel, type Concert, type Member, type Room, type TimelineDay, type TimetableStop } from "@/lib/data";
+import {
+  getModeLabel,
+  type Member,
+  type TimelineDay,
+  type TimetableStop,
+} from "@/lib/data";
+import type { ConcertSummary } from "@/lib/api/concerts";
+import { getRoomTagLabel, type RoomListItem } from "@/lib/api/rooms";
+import {
+  formatConcertDate,
+  formatConcertDday,
+  formatRoomMeetingTime,
+} from "@/lib/format";
 import {
   getKakaoMapKey,
   loadKakaoMaps,
   type KakaoMapInstance,
   type KakaoMapsApi,
-  type KakaoOverlay
+  type KakaoOverlay,
 } from "@/lib/kakao-map";
 
 export function Badge({
   children,
-  tone = "muted"
+  tone = "muted",
 }: {
   children: React.ReactNode;
   tone?: "muted" | "yellow";
@@ -27,7 +47,7 @@ export function Badge({
         "inline-flex items-center gap-1 rounded-[var(--r-pill)] border px-2.5 py-1 text-[11px] font-semibold",
         tone === "yellow"
           ? "border-[var(--cb-yellow-line)] bg-[var(--cb-yellow-dim)] text-[var(--cb-yellow-2)]"
-          : "border-[var(--cb-line)] bg-[var(--cb-surface-2)] text-[var(--cb-text-2)]"
+          : "border-[var(--cb-line)] bg-[var(--cb-surface-2)] text-[var(--cb-text-2)]",
       )}
     >
       {children}
@@ -39,7 +59,13 @@ export function SectionTitle({ title }: { title: string }) {
   return <h2 className="mb-3 mt-5 text-[15px] font-bold">{title}</h2>;
 }
 
-export function BackButton({ href, icon = "back" }: { href: string; icon?: "back" | "close" }) {
+export function BackButton({
+  href,
+  icon = "back",
+}: {
+  href: string;
+  icon?: "back" | "close";
+}) {
   return (
     <Link
       href={href}
@@ -51,31 +77,67 @@ export function BackButton({ href, icon = "back" }: { href: string; icon?: "back
   );
 }
 
-export function InfoRow({ label, value, strong }: { label: string; value: string; strong?: boolean }) {
+export function InfoRow({
+  label,
+  value,
+  strong,
+}: {
+  label: string;
+  value: string;
+  strong?: boolean;
+}) {
   return (
-    <div className={cn("flex justify-between py-1.5", strong && "text-[15px] font-black text-[var(--cb-yellow)]")}>
+    <div
+      className={cn(
+        "flex justify-between py-1.5",
+        strong && "text-[15px] font-black text-[var(--cb-yellow)]",
+      )}
+    >
       <span className="text-[var(--cb-text-3)]">{label}</span>
       <span className="font-semibold">{value}</span>
     </div>
   );
 }
 
-export function ConcertCard({ concert, href = "/rooms" }: { concert: Concert; href?: string }) {
+export function ConcertCard({
+  concert,
+  href,
+}: {
+  concert: ConcertSummary;
+  href?: string;
+}) {
+  const resolvedHref = href ?? `/rooms?concertId=${concert.id}`;
+
   return (
     <Link
-      href={href}
+      href={resolvedHref}
       className="flex gap-[13px] rounded-[var(--r-lg)] border border-[var(--cb-line)] bg-[var(--cb-surface-1)] p-3 shadow-[var(--sh-card)] transition duration-150 hover:border-[var(--cb-line-2)] hover:bg-[var(--cb-surface-2)] active:scale-[0.99] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--cb-yellow)]"
     >
-      <div className="ph grid h-[72px] w-[72px] place-items-end rounded-[var(--r-md)] p-2 text-[9px] font-semibold tracking-[.06em] text-white/40">
-        POSTER
+      <div className="ph relative grid h-[72px] w-[72px] place-items-end overflow-hidden rounded-[var(--r-md)] p-2 text-[9px] font-semibold tracking-[.06em] text-white/40">
+        {concert.posterUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={concert.posterUrl}
+            alt=""
+            className="absolute inset-0 h-full w-full object-cover"
+          />
+        ) : (
+          "POSTER"
+        )}
       </div>
       <div className="flex min-w-0 flex-1 flex-col justify-center gap-[3px]">
-        <h2 className="truncate text-[15px] font-bold tracking-[-.01em]">{concert.title}</h2>
+        <h2 className="truncate text-[15px] font-bold tracking-[-.01em]">
+          {concert.title}
+        </h2>
         <p className="truncate text-[12.5px] text-[var(--cb-text-2)]">
-          <span>{concert.artist}</span> · {concert.venue}
+          {concert.venueName}
         </p>
         <p className="mt-[3px] flex items-center gap-1.5 text-[11.5px] text-[var(--cb-text-3)]">
-          <CalendarDays size={14} /> {concert.date} · 열린 방 <b className="font-bold text-[var(--cb-yellow)]">{concert.roomCount}</b>
+          <CalendarDays size={14} /> {formatConcertDate(concert.startAt)} ·{" "}
+          {formatConcertDday(concert.startAt)} · 열린 방{" "}
+          <b className="font-bold text-[var(--cb-yellow)]">
+            {concert.openRoomCount}
+          </b>
         </p>
       </div>
     </Link>
@@ -86,73 +148,69 @@ export function RoomCard({
   room,
   href,
   compact = false,
-  selectedTags = []
+  selectedTags = [],
 }: {
-  room: Room;
+  room: RoomListItem;
   href: string;
   compact?: boolean;
   selectedTags?: string[];
 }) {
-  const isFull = room.currentMembers >= room.maxMembers;
-  const matchCount = room.tags.filter((tag) => selectedTags.includes(tag)).length;
-  const hasInterestMatch = selectedTags.length > 0;
-  const matchLabel = hasInterestMatch ? `${matchCount}/${selectedTags.length} match` : `매칭률 ${room.match}%`;
-
   return (
     <Link href={href} className="group block">
       <Card
         className={cn(
           "interactive-surface-card flex flex-col gap-[11px]",
-          isFull && "opacity-50"
+          room.isFull && "opacity-50",
         )}
       >
         <div className="flex items-center justify-between">
           <div className="flex min-w-0 items-center gap-[9px]">
-            <span
-              className={cn(
-                "grid h-7 w-7 shrink-0 place-items-center rounded-full border bg-[var(--cb-surface-3)] text-[11px] font-bold uppercase text-[var(--cb-text-2)]",
-                room.status === "host" ? "border-[var(--cb-yellow)] text-[var(--cb-yellow)] shadow-[0_0_0_1px_var(--cb-yellow-line)]" : "border-[var(--cb-line)]"
-              )}
-            >
-              {(room.hostAvatar || room.hostNickname).slice(0, 1)}
+            <span className="grid h-7 w-7 shrink-0 place-items-center rounded-full border border-[var(--cb-line)] bg-[var(--cb-surface-3)] text-[11px] font-bold uppercase text-[var(--cb-text-2)]">
+              {room.hostNickname.slice(0, 1)}
             </span>
-            <span className="truncate text-[13px] font-semibold">{room.hostNickname}</span>
+            <span className="truncate text-[13px] font-semibold">
+              {room.hostNickname}
+            </span>
           </div>
-          {isFull ? (
+          {room.isFull ? (
             <span className="rounded-[var(--r-sm)] border border-[var(--cb-line-2)] bg-[var(--cb-surface-2)] px-[9px] py-1 text-[10.5px] font-bold uppercase tracking-[.04em] text-[var(--cb-text-3)]">
               정원 마감
             </span>
-          ) : (
-            <span
-              className={cn(
-                "rounded-[var(--r-sm)] border px-[9px] py-1 text-[11px] font-bold tracking-normal",
-                hasInterestMatch && matchCount === selectedTags.length
-                  ? "border-[var(--cb-yellow)] bg-[var(--cb-yellow)] text-[var(--cb-on-yellow)]"
-                  : "border-[var(--cb-yellow-line)] bg-[var(--cb-yellow-dim)] text-[var(--cb-yellow-2)]"
-              )}
-            >
-              {matchLabel}
-            </span>
-          )}
+          ) : null}
         </div>
-        <h2 className={cn("font-bold leading-[1.4] tracking-[-.01em]", compact ? "text-[14px]" : "text-[15px]")}>{room.title}</h2>
+        <h2
+          className={cn(
+            "font-bold leading-[1.4] tracking-[-.01em]",
+            compact ? "text-[14px]" : "text-[15px]",
+          )}
+        >
+          {room.title}
+        </h2>
         <div className="flex flex-wrap gap-1.5">
-          {room.tags.slice(0, 3).map((tag) => (
-            <Badge key={tag} tone={selectedTags.includes(tag) ? "yellow" : "muted"}>
-              {tag}
+          {room.roomTags.slice(0, 3).map((tag) => (
+            <Badge
+              key={tag}
+              tone={selectedTags.includes(tag) ? "yellow" : "muted"}
+            >
+              {getRoomTagLabel(tag)}
             </Badge>
           ))}
         </div>
         <div className="flex items-center justify-between gap-3 pt-0.5">
           <div className="flex min-w-0 items-center gap-1.5 truncate text-[12px] text-[var(--cb-text-2)]">
-            <MapPinIcon size={14} className="shrink-0 text-[var(--cb-text-3)]" />
-            <span className="truncate">{room.meetPlace}</span>
+            <MapPinIcon
+              size={14}
+              className="shrink-0 text-[var(--cb-text-3)]"
+            />
+            <span className="truncate">{room.meetingPlaceName}</span>
             <span className="shrink-0 text-[var(--cb-text-3)]">·</span>
             <Clock3 size={14} className="shrink-0 text-[var(--cb-text-3)]" />
-            <span className="shrink-0">{room.meetTime}</span>
+            <span className="shrink-0">
+              {formatRoomMeetingTime(room.meetingAt)}
+            </span>
           </div>
           <span className="shrink-0 rounded-[var(--r-pill)] border border-[var(--cb-line)] bg-[var(--cb-surface-2)] px-[11px] py-1 text-[11.5px] font-semibold text-[var(--cb-text-2)]">
-            {room.currentMembers} / {room.maxMembers}
+            {room.memberCount} / {room.maxMembers}
           </span>
         </div>
       </Card>
@@ -163,35 +221,60 @@ export function RoomCard({
 export function MemberRow({ member }: { member: Member }) {
   return (
     <div className="flex items-center gap-2 rounded-[var(--r-md)] bg-[var(--cb-surface-2)] p-3">
-      <Avatar name={member.avatar || member.nickname} host={member.role === "host"} />
+      <Avatar
+        name={member.avatar || member.nickname}
+        host={member.role === "host"}
+      />
       <div className="flex-1 text-[13px] font-semibold">{member.nickname}</div>
       <Badge tone={member.role === "pending" ? "yellow" : "muted"}>
-        {member.role === "host" ? "HOST" : member.role === "pending" ? "승인 대기" : "MEMBER"}
+        {member.role === "host"
+          ? "HOST"
+          : member.role === "pending"
+            ? "승인 대기"
+            : "MEMBER"}
       </Badge>
     </div>
   );
 }
 
-export function TimelineBlock({ stops, detailed = false }: { stops: TimetableStop[]; detailed?: boolean }) {
+export function TimelineBlock({
+  stops,
+  detailed = false,
+}: {
+  stops: TimetableStop[];
+  detailed?: boolean;
+}) {
   return (
     <div className="space-y-2">
       {stops.map((stop, index) => (
         <div key={stop.id} className="flex gap-3">
           <div className="flex flex-col items-center">
             <span className="grid h-7 w-7 place-items-center rounded-full bg-[var(--cb-yellow)] text-[12px] font-black text-[var(--cb-on-yellow)]">
-              {stop.locked ? <Star size={13} fill="currentColor" /> : getStopMarkerLabel(stop)}
+              {stop.locked ? (
+                <Star size={13} fill="currentColor" />
+              ) : (
+                getStopMarkerLabel(stop)
+              )}
             </span>
-            {index < stops.length - 1 ? <span className="h-10 w-px bg-[var(--cb-line-2)]" /> : null}
+            {index < stops.length - 1 ? (
+              <span className="h-10 w-px bg-[var(--cb-line-2)]" />
+            ) : null}
           </div>
           <div className="min-w-0 flex-1 rounded-[var(--r-md)] bg-[var(--cb-surface-2)] p-3">
             <div className="flex justify-between gap-2">
               <div className="truncate text-[13px] font-bold">{stop.place}</div>
-              <div className="shrink-0 text-[11px] font-semibold text-[var(--cb-yellow)]">{stop.time}</div>
+              <div className="shrink-0 text-[11px] font-semibold text-[var(--cb-yellow)]">
+                {stop.time}
+              </div>
             </div>
             {detailed ? (
               <div className="mt-2 flex items-center justify-between text-[11px] text-[var(--cb-text-3)]">
                 <span>{stop.category}</span>
-                <span>{stop.locked ? "공연 시간 잠김" : `${getModeLabel(stop.mode)} ${stop.transitMinutes}분`}</span>
+                <span>
+                  {stop.locked
+                    ? "공연 시간 잠김"
+                    : `${getModeLabel(stop.mode)} ${stop.transitMinutes}분`}
+                </span>
               </div>
             ) : null}
           </div>
@@ -204,7 +287,10 @@ export function TimelineBlock({ stops, detailed = false }: { stops: TimetableSto
 export function MapFallback({ hasKey }: { hasKey: boolean }) {
   return (
     <div className="absolute inset-x-4 bottom-3 z-10 rounded-[var(--r-md)] border border-[var(--cb-yellow-line)] bg-[rgba(22,22,24,.88)] p-3 text-[11px] leading-5 text-[var(--cb-text-2)] backdrop-blur">
-      Kakao Maps fallback · {hasKey ? "스크립트 로딩 중 또는 실패" : "NEXT_PUBLIC_KAKAO_MAP_KEY 미설정"}
+      Kakao Maps fallback ·{" "}
+      {hasKey
+        ? "스크립트 로딩 중 또는 실패"
+        : "NEXT_PUBLIC_KAKAO_MAP_KEY 미설정"}
     </div>
   );
 }
@@ -219,7 +305,7 @@ export function MapPin({
   active,
   anchor,
   onSelect,
-  onHover
+  onHover,
 }: {
   id: number | string;
   label?: string;
@@ -246,7 +332,7 @@ export function MapPin({
         isActive && !anchor
           ? "scale-110 border-[var(--cb-yellow)] bg-[var(--cb-yellow)] text-[var(--cb-on-yellow)] shadow-[0_0_0_4px_rgba(253,190,13,.18),0_6px_14px_-4px_rgba(0,0,0,.7)]"
           : null,
-        isActive && anchor ? "scale-110" : null
+        isActive && anchor ? "scale-110" : null,
       )}
       data-active={isActive ? "true" : "false"}
       data-selected={selected ? "true" : "false"}
@@ -274,7 +360,7 @@ export function RouteMapCanvas({
   className,
   showLabel = true,
   showFallbackNotice = true,
-  full = false
+  full = false,
 }: {
   stops: TimetableStop[];
   selectedStopId: string;
@@ -291,19 +377,25 @@ export function RouteMapCanvas({
   const hasKakaoKey = Boolean(getKakaoMapKey());
   const [internalDay, setInternalDay] = useState<TimelineDay>("d-day");
   const [kakao, setKakao] = useState<KakaoMapsApi | null>(null);
-  const [mapState, setMapState] = useState<"loading" | "ready" | "fallback">(hasKakaoKey ? "loading" : "fallback");
+  const [mapState, setMapState] = useState<"loading" | "ready" | "fallback">(
+    hasKakaoKey ? "loading" : "fallback",
+  );
   const mapRef = useRef<HTMLDivElement>(null);
-  const routePoints = stops.map((stop) => `${stop.mapPoint.left},${stop.mapPoint.top}`).join(" ");
+  const routePoints = stops
+    .map((stop) => `${stop.mapPoint.left},${stop.mapPoint.top}`)
+    .join(" ");
   const currentDay = activeDay ?? internalDay;
   const setCurrentDay = onDayChange ?? setInternalDay;
   const hasStops = stops.length > 0;
-  const focusedStop = stops.find((stop) => stop.id === selectedStopId) ?? stops[0];
-  const focusOffset = full && focusedStop
-    ? {
-        x: 50 - focusedStop.mapPoint.left,
-        y: 50 - focusedStop.mapPoint.top
-      }
-    : null;
+  const focusedStop =
+    stops.find((stop) => stop.id === selectedStopId) ?? stops[0];
+  const focusOffset =
+    full && focusedStop
+      ? {
+          x: 50 - focusedStop.mapPoint.left,
+          y: 50 - focusedStop.mapPoint.top,
+        }
+      : null;
 
   useEffect(() => {
     if (!hasKakaoKey) return;
@@ -325,10 +417,12 @@ export function RouteMapCanvas({
     if (!kakao || !mapRef.current || !hasStops) return;
 
     const overlays: KakaoOverlay[] = [];
-    const points = stops.map((stop) => new kakao.maps.LatLng(stop.mapPoint.lat, stop.mapPoint.lng));
+    const points = stops.map(
+      (stop) => new kakao.maps.LatLng(stop.mapPoint.lat, stop.mapPoint.lng),
+    );
     const map = new kakao.maps.Map(mapRef.current, {
       center: points[Math.min(1, points.length - 1)],
-      level: full ? 5 : 6
+      level: full ? 5 : 6,
     });
     const bounds = new kakao.maps.LatLngBounds();
     points.forEach((point) => bounds.extend(point));
@@ -337,7 +431,12 @@ export function RouteMapCanvas({
     if (full) {
       const selectedPoint = stops.find((stop) => stop.id === selectedStopId);
       if (selectedPoint) {
-        map.panTo(new kakao.maps.LatLng(selectedPoint.mapPoint.lat, selectedPoint.mapPoint.lng));
+        map.panTo(
+          new kakao.maps.LatLng(
+            selectedPoint.mapPoint.lat,
+            selectedPoint.mapPoint.lng,
+          ),
+        );
       }
     }
 
@@ -348,18 +447,26 @@ export function RouteMapCanvas({
         strokeWeight: full ? 3 : 2,
         strokeColor: "#FDBE0D",
         strokeOpacity: 0.85,
-        strokeStyle: "shortdash"
-      })
+        strokeStyle: "shortdash",
+      }),
     );
 
     stops.forEach((stop) => {
-      const content = createKakaoPinButton(kakao, map, stop, selectedStopId, activeStopId ?? null, onSelectStop, onHoverStop);
+      const content = createKakaoPinButton(
+        kakao,
+        map,
+        stop,
+        selectedStopId,
+        activeStopId ?? null,
+        onSelectStop,
+        onHoverStop,
+      );
       const overlay = new kakao.maps.CustomOverlay({
         position: new kakao.maps.LatLng(stop.mapPoint.lat, stop.mapPoint.lng),
         content,
         xAnchor: 0.5,
         yAnchor: 0.85,
-        clickable: true
+        clickable: true,
       });
       overlay.setMap(map);
       overlays.push(overlay);
@@ -368,7 +475,16 @@ export function RouteMapCanvas({
     return () => {
       overlays.forEach((overlay) => overlay.setMap(null));
     };
-  }, [activeStopId, full, hasStops, kakao, onHoverStop, onSelectStop, selectedStopId, stops]);
+  }, [
+    activeStopId,
+    full,
+    hasStops,
+    kakao,
+    onHoverStop,
+    onSelectStop,
+    selectedStopId,
+    stops,
+  ]);
 
   const showMockLayer = mapState !== "ready";
 
@@ -379,20 +495,31 @@ export function RouteMapCanvas({
         "map-grid relative shrink-0 overflow-hidden bg-[#121214]",
         "before:absolute before:inset-0 before:opacity-50 before:content-['']",
         "after:absolute after:inset-0 after:bg-[linear-gradient(60deg,transparent_48%,rgba(255,255,255,.05)_49%_51%,transparent_52%),linear-gradient(-25deg,transparent_38%,rgba(255,255,255,.045)_39%_40.5%,transparent_41%),linear-gradient(110deg,transparent_64%,rgba(255,255,255,.04)_65%_66%,transparent_67%)] after:content-['']",
-        className
+        className,
       )}
       data-map-state={mapState}
       style={{ viewTransitionName: "buddyduck-route-map" }}
     >
-      <div ref={mapRef} className={cn("absolute inset-0 z-[1]", showMockLayer && "hidden")} />
+      <div
+        ref={mapRef}
+        className={cn("absolute inset-0 z-[1]", showMockLayer && "hidden")}
+      />
       {showMockLayer && hasStops ? (
         <div
           className="absolute inset-0 z-[2] transition-transform duration-300 ease-out motion-reduce:transition-none"
           data-centered-stop={focusedStop?.id}
           data-map-focus-layer
-          style={focusOffset ? { transform: `translate(${focusOffset.x}%, ${focusOffset.y}%)` } : undefined}
+          style={
+            focusOffset
+              ? { transform: `translate(${focusOffset.x}%, ${focusOffset.y}%)` }
+              : undefined
+          }
         >
-          <svg className="absolute inset-0 z-[2] h-full w-full" viewBox="0 0 100 100" preserveAspectRatio="none">
+          <svg
+            className="absolute inset-0 z-[2] h-full w-full"
+            viewBox="0 0 100 100"
+            preserveAspectRatio="none"
+          >
             <polyline
               points={routePoints}
               fill="none"
@@ -417,7 +544,11 @@ export function RouteMapCanvas({
               onSelect={(id) => onSelectStop(String(id))}
               onHover={(id) => onHoverStop?.(id ? String(id) : null)}
             >
-              {stop.locked ? <Star size={14} fill="currentColor" /> : getStopMarkerLabel(stop)}
+              {stop.locked ? (
+                <Star size={14} fill="currentColor" />
+              ) : (
+                getStopMarkerLabel(stop)
+              )}
             </MapPin>
           ))}
         </div>
@@ -433,7 +564,8 @@ export function RouteMapCanvas({
           aria-pressed={currentDay === "d-day"}
           className={cn(
             "rounded-[var(--r-pill)] px-[13px] py-[5px] text-[11.5px] font-bold text-[var(--cb-text-2)] transition duration-150 hover:bg-[var(--cb-surface-3)] active:scale-95 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[var(--cb-yellow)]",
-            currentDay === "d-day" && "bg-[var(--cb-yellow)] text-[var(--cb-on-yellow)] hover:bg-[var(--cb-yellow-2)]"
+            currentDay === "d-day" &&
+              "bg-[var(--cb-yellow)] text-[var(--cb-on-yellow)] hover:bg-[var(--cb-yellow-2)]",
           )}
           onClick={() => setCurrentDay("d-day")}
           type="button"
@@ -446,7 +578,8 @@ export function RouteMapCanvas({
           aria-pressed={currentDay === "d-plus-1"}
           className={cn(
             "rounded-[var(--r-pill)] px-[13px] py-[5px] text-[11.5px] font-bold text-[var(--cb-text-2)] transition duration-150 hover:bg-[var(--cb-surface-3)] active:scale-95 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[var(--cb-yellow)]",
-            currentDay === "d-plus-1" && "bg-[var(--cb-yellow)] text-[var(--cb-on-yellow)] hover:bg-[var(--cb-yellow-2)]"
+            currentDay === "d-plus-1" &&
+              "bg-[var(--cb-yellow)] text-[var(--cb-on-yellow)] hover:bg-[var(--cb-yellow-2)]",
           )}
           onClick={() => setCurrentDay("d-plus-1")}
           type="button"
@@ -460,7 +593,9 @@ export function RouteMapCanvas({
           선택한 날짜의 일정은 아직 등록되지 않았어요
         </div>
       ) : null}
-      {showFallbackNotice && mapState !== "ready" && hasStops ? <MapFallback hasKey={hasKakaoKey} /> : null}
+      {showFallbackNotice && mapState !== "ready" && hasStops ? (
+        <MapFallback hasKey={hasKakaoKey} />
+      ) : null}
     </section>
   );
 }
@@ -468,7 +603,7 @@ export function RouteMapCanvas({
 export function MapPlaceCard({
   stop,
   hasNextStop = false,
-  onNextStop
+  onNextStop,
 }: {
   stop: TimetableStop;
   hasNextStop?: boolean;
@@ -479,17 +614,29 @@ export function MapPlaceCard({
       <span
         className={cn(
           "grid h-8 w-8 shrink-0 place-items-center rounded-full text-[12px] font-black",
-          stop.locked ? "bg-[var(--cb-yellow)] text-[var(--cb-on-yellow)]" : "bg-[var(--cb-surface-3)] text-[var(--cb-text)]"
+          stop.locked
+            ? "bg-[var(--cb-yellow)] text-[var(--cb-on-yellow)]"
+            : "bg-[var(--cb-surface-3)] text-[var(--cb-text)]",
         )}
       >
-        {stop.locked ? <Star size={14} fill="currentColor" /> : getStopMarkerLabel(stop)}
+        {stop.locked ? (
+          <Star size={14} fill="currentColor" />
+        ) : (
+          getStopMarkerLabel(stop)
+        )}
       </span>
       <div className="min-w-0 flex-1">
         <div className="truncate text-[13px] font-bold">{stop.place}</div>
-        <div className="mt-1 text-[11px] text-[var(--cb-text-2)]">{stop.category} · Kakao</div>
-        <div className="mt-1 truncate text-[11px] text-[var(--cb-text-3)]">{stop.address}</div>
+        <div className="mt-1 text-[11px] text-[var(--cb-text-2)]">
+          {stop.category} · Kakao
+        </div>
+        <div className="mt-1 truncate text-[11px] text-[var(--cb-text-3)]">
+          {stop.address}
+        </div>
         <div className="mt-1 flex items-center gap-1 text-[11px] text-[var(--cb-text-3)]">
-          <Clock3 size={13} /> {stop.time} · {stop.locked ? "도착 버퍼" : "머무는 시간"} {formatStopMinutes(stop.dwellMinutes)}
+          <Clock3 size={13} /> {stop.time} ·{" "}
+          {stop.locked ? "도착 버퍼" : "머무는 시간"}{" "}
+          {formatStopMinutes(stop.dwellMinutes)}
         </div>
       </div>
       <button
@@ -515,7 +662,9 @@ export function formatStopMinutes(minutes: number) {
 }
 
 export function getMapPinLabel(stop: TimetableStop) {
-  return stop.locked ? `지도 핀 공연: ${stop.place}` : `지도 핀 ${getStopMarkerLabel(stop)}: ${stop.place}`;
+  return stop.locked
+    ? `지도 핀 공연: ${stop.place}`
+    : `지도 핀 ${getStopMarkerLabel(stop)}: ${stop.place}`;
 }
 
 export function getStopMarkerLabel(stop: TimetableStop) {
@@ -529,7 +678,7 @@ function createKakaoPinButton(
   selectedStopId: string,
   activeStopId: string | null,
   onSelectStop: (stopId: string) => void,
-  onHoverStop?: (stopId: string | null) => void
+  onHoverStop?: (stopId: string | null) => void,
 ) {
   const button = document.createElement("button");
   const isActive = selectedStopId === stop.id || activeStopId === stop.id;
@@ -546,7 +695,7 @@ function createKakaoPinButton(
     isActive && !stop.locked
       ? "scale-110 border-[var(--cb-yellow)] bg-[var(--cb-yellow)] text-[var(--cb-on-yellow)] shadow-[0_0_0_4px_rgba(253,190,13,.18),0_6px_14px_-4px_rgba(0,0,0,.7)]"
       : null,
-    isActive && stop.locked ? "scale-110" : null
+    isActive && stop.locked ? "scale-110" : null,
   );
   button.innerHTML = `<span class="rotate-45">${stop.locked ? "★" : getStopMarkerLabel(stop)}</span>`;
   button.addEventListener("click", () => {
