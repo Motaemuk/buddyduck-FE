@@ -99,7 +99,7 @@ export function MyRoomsScreen() {
             <Card className="mx-4 mt-[18px] p-5 text-center">
               <p className="text-[13px] text-[var(--cb-text-2)]">아직 표시할 방이 없습니다.</p>
               <Button asChild className="mt-4">
-                <Link href="/rooms/create">방 만들기</Link>
+                <Link href="/rooms">방 만들기</Link>
               </Button>
             </Card>
           )}
