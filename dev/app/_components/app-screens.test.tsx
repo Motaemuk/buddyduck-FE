@@ -110,6 +110,17 @@ const concertDetailFixture = {
   openRoomCount: 12,
 };
 
+const userProfileFixture = {
+  id: 1,
+  nickname: "moon_armies",
+  ageRange: "TWENTIES",
+  gender: "FEMALE",
+  profileCompleted: true,
+  avatarColor: "#FACC15",
+  participatingRoomCount: 2,
+  pendingRoomCount: 1,
+};
+
 const roomListItemFixture = {
   id: 10,
   title: "굿즈 줄 같이 서고 카페까지 같이 가요",
@@ -171,6 +182,7 @@ function renderWithConcerts(ui: React.ReactElement) {
     },
   });
   queryClient.setQueryData(["concerts"], concerts);
+  queryClient.setQueryData(["user", "me"], userProfileFixture);
 
   return render(
     <QueryClientProvider client={queryClient}>{ui}</QueryClientProvider>,
@@ -511,80 +523,175 @@ describe("BuddyDuckApp screens", () => {
     expect(httpMocks.post).not.toHaveBeenCalled();
   });
 
-  it("renders CB-06 as the hi-fi my rooms list with status filters and time sorting", () => {
+  it("renders CB-06 my rooms from ROOM-004 with client-derived status filters", async () => {
+    httpMocks.get.mockResolvedValue(
+      envelope({
+        items: [
+          {
+            roomId: 10,
+            title: "굿즈 동선 같이 맞출 분",
+            viewerRole: "HOST",
+            viewerJoinStatus: "APPROVED",
+            roomStatus: "OPEN",
+            concertTitle: "AURORA LIVE",
+            concertStartAt: "2099-07-05T19:00:00+09:00",
+            daysUntilConcert: 14,
+            venueName: "KSPO Dome",
+            meetingAt: "2099-07-05T14:00:00+09:00",
+            meetingPlaceName: "잠실역 5번 출구",
+            meetingPlaceAddress: "서울 송파구 잠실동",
+            memberCount: 3,
+            maxMembers: 4,
+            pendingJoinRequestCount: 2,
+          },
+          {
+            roomId: 11,
+            title: "카페 투어 같이 가요",
+            viewerRole: "MEMBER",
+            viewerJoinStatus: "APPROVED",
+            roomStatus: "OPEN",
+            concertTitle: "MOON SYNC TOUR",
+            concertStartAt: "2099-07-06T19:00:00+09:00",
+            daysUntilConcert: 15,
+            venueName: "잠실실내체육관",
+            meetingAt: "2099-07-06T13:00:00+09:00",
+            meetingPlaceName: "잠실역 3번 출구",
+            meetingPlaceAddress: "서울 송파구 잠실동",
+            memberCount: 2,
+            maxMembers: 4,
+            pendingJoinRequestCount: 0,
+          },
+          {
+            roomId: 12,
+            title: "포카 교환할 분 찾아요",
+            viewerRole: "MEMBER",
+            viewerJoinStatus: "PENDING",
+            roomStatus: "OPEN",
+            concertTitle: "AURORA LIVE",
+            concertStartAt: "2099-07-05T19:00:00+09:00",
+            daysUntilConcert: 14,
+            venueName: "KSPO Dome",
+            meetingAt: "2099-07-05T16:00:00+09:00",
+            meetingPlaceName: "8번 출구",
+            meetingPlaceAddress: "서울 송파구 잠실동",
+            memberCount: 1,
+            maxMembers: 4,
+            pendingJoinRequestCount: 0,
+          },
+        ],
+        page: 0,
+        size: 20,
+        hasNext: false,
+      }),
+    );
+
     renderWithConcerts(renderInShell("CB-06", <MyRoomsScreen />));
 
     expect(screen.getByRole("heading", { name: "내 방" })).toBeInTheDocument();
+
+    // Wait for the ROOM-004 query to resolve, then scope assertions to the list region
+    // so BottomNav links are excluded.
+    await screen.findByRole("link", { name: /굿즈 동선 같이 맞출 분/ });
+    // `tab` is optional with an undocumented enum, so it is omitted from the request.
+    expect(httpMocks.get).toHaveBeenCalledWith(
+      "/api/me/rooms",
+      expect.objectContaining({ params: {} }),
+    );
+
     const filterGroup = screen.getByRole("group", { name: "내 방 상태 필터" });
     expect(
       within(filterGroup)
         .getAllByRole("button")
         .map((button) => button.textContent?.replace(/\s+/g, " ").trim()),
-    ).toEqual(["전체", "방장 1", "참여중 2", "대기중 1"]);
+    ).toEqual(["전체", "방장 1", "참여중 1", "대기중 1"]);
 
+    const list = () => screen.getByRole("region", { name: "내 방 목록" });
     expect(
-      screen
-        .getAllByRole("heading", { level: 2 })
-        .map((heading) => heading.textContent),
-    ).toEqual(["오늘 / 이번 주", "지난 방"]);
-
-    const currentSection = screen.getByRole("region", {
-      name: "오늘 / 이번 주",
-    });
-    expect(
-      within(currentSection)
+      within(list())
         .getAllByRole("link")
         .map((link) => link.textContent),
     ).toEqual([
-      expect.stringContaining("근처 호텔 잡은 분, 굿즈만 같이 사실 분"),
-      expect.stringContaining("굿즈 줄 같이 서고 카페까지 같이 가요"),
-      expect.stringContaining("포카 교환 + 응원 챈트 맞춰봐요"),
-      expect.stringContaining("공연 후 근처 맛집 사진 정리까지"),
+      expect.stringContaining("굿즈 동선 같이 맞출 분"),
+      expect.stringContaining("카페 투어 같이 가요"),
+      expect.stringContaining("포카 교환할 분 찾아요"),
     ]);
-    expect(within(currentSection).getByText("대기중")).toBeInTheDocument();
-    expect(
-      screen.getByRole("link", {
-        name: /굿즈 줄 같이 서고 카페까지 같이 가요/,
-      }),
-    ).toHaveAttribute("href", "/rooms/r1");
-    expect(
-      screen.getByRole("link", { name: /근처 호텔 잡은 분/ }),
-    ).toHaveAttribute("href", "/rooms/r2");
-    expect(screen.getByRole("link", { name: /포카 교환/ })).toHaveAttribute(
-      "href",
-      "/rooms/r3",
-    );
-    expect(
-      screen.queryByRole("heading", { name: "승인 대기" }),
-    ).not.toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("button", { name: "참여중 2" }));
-
-    const joinedSection = screen.getByRole("region", {
-      name: "오늘 / 이번 주",
+    // Reduced card: title + role/status badge + link to the role-appropriate detail route.
+    expect(
+      within(list()).getByRole("link", { name: /굿즈 동선 같이 맞출 분/ }),
+    ).toHaveAttribute("href", "/rooms/host");
+    expect(
+      within(list()).getByRole("link", { name: /카페 투어 같이 가요/ }),
+    ).toHaveAttribute("href", "/rooms/member");
+    const pendingCard = within(list()).getByRole("link", {
+      name: /포카 교환할 분 찾아요/,
     });
+    expect(pendingCard).toHaveAttribute("href", "/rooms/pending");
+    expect(within(pendingCard).getByText("승인 대기 중")).toBeInTheDocument();
+
+    // Wireframe-style rich fields from the updated ROOM-004 payload.
+    const hostCard = within(list()).getByRole("link", {
+      name: /굿즈 동선 같이 맞출 분/,
+    });
+    expect(within(hostCard).getByText(/AURORA LIVE/)).toBeInTheDocument();
+    expect(within(hostCard).getByText(/KSPO Dome/)).toBeInTheDocument();
+    expect(within(hostCard).getByText("잠실역 5번 출구")).toBeInTheDocument();
+    expect(within(hostCard).getByText("멤버 3 / 4")).toBeInTheDocument();
+    expect(within(hostCard).getByText("승인 대기 2건")).toBeInTheDocument();
+    expect(within(hostCard).getByText("D-14")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "참여중 1" }));
     expect(
-      within(joinedSection)
+      within(list())
         .getAllByRole("link")
         .map((link) => link.textContent),
-    ).toEqual([
-      expect.stringContaining("근처 호텔 잡은 분, 굿즈만 같이 사실 분"),
-      expect.stringContaining("공연 후 근처 맛집 사진 정리까지"),
-    ]);
-    expect(
-      screen.queryByRole("heading", { name: "승인 대기" }),
-    ).not.toBeInTheDocument();
+    ).toEqual([expect.stringContaining("카페 투어 같이 가요")]);
 
     fireEvent.click(screen.getByRole("button", { name: "대기중 1" }));
-
-    const pendingSection = screen.getByRole("region", {
-      name: "오늘 / 이번 주",
-    });
     expect(
-      within(pendingSection)
+      within(list())
         .getAllByRole("link")
         .map((link) => link.textContent),
-    ).toEqual([expect.stringContaining("포카 교환 + 응원 챈트 맞춰봐요")]);
+    ).toEqual([expect.stringContaining("포카 교환할 분 찾아요")]);
+  });
+
+  it("shows 종료 instead of D-DAY once the concert date has passed", async () => {
+    // daysUntilConcert is intentionally 0 here to prove the badge is driven by the real
+    // concert date, not a stale/clamped countdown value.
+    httpMocks.get.mockResolvedValue(
+      envelope({
+        items: [
+          {
+            roomId: 20,
+            title: "지난 공연 같이 간 방",
+            viewerRole: "MEMBER",
+            viewerJoinStatus: "APPROVED",
+            roomStatus: "CLOSED",
+            concertTitle: "PAST FEST",
+            concertStartAt: "2020-01-01T19:00:00+09:00",
+            daysUntilConcert: 0,
+            venueName: "올림픽홀",
+            meetingAt: "2020-01-01T16:00:00+09:00",
+            meetingPlaceName: "올림픽공원역",
+            meetingPlaceAddress: "서울 송파구",
+            memberCount: 4,
+            maxMembers: 4,
+            pendingJoinRequestCount: 0,
+          },
+        ],
+        page: 0,
+        size: 1,
+        hasNext: false,
+      }),
+    );
+
+    renderWithConcerts(renderInShell("CB-06", <MyRoomsScreen />));
+
+    const card = await screen.findByRole("link", {
+      name: /지난 공연 같이 간 방/,
+    });
+    expect(within(card).getByText("종료")).toBeInTheDocument();
+    expect(within(card).queryByText("D-DAY")).not.toBeInTheDocument();
   });
 
   it("renders CB-07 room detail from roomId with role-specific access", () => {
@@ -1269,13 +1376,12 @@ describe("BuddyDuckApp screens", () => {
         "/profile/edit",
       );
       expect(screen.getByText("20대 · 여성")).toBeInTheDocument();
-      expect(screen.getByText("가입 2026.05.10")).toBeInTheDocument();
       expect(screen.queryByText("추억 사진")).not.toBeInTheDocument();
       expect(
-        screen.getByRole("link", { name: /4\s*참여 중인 방/ }),
+        screen.getByRole("link", { name: /2\s*참여 중인 방/ }),
       ).toHaveAttribute("href", "/my-rooms");
       expect(
-        screen.getByRole("link", { name: /1\s*완료한 공연/ }),
+        screen.getByRole("link", { name: /1\s*신청 대기 중인 방/ }),
       ).toHaveAttribute("href", "/my-rooms");
 
       fireEvent.click(screen.getByRole("button", { name: /알림 설정/ }));
@@ -1301,7 +1407,12 @@ describe("BuddyDuckApp screens", () => {
     }
   });
 
-  it("renders CB-14prime profile edit with nickname, age, gender, and bottom save", () => {
+  it("prefills CB-14prime from PROFILE-001 and saves edits via PROFILE-002", async () => {
+    // renderWithConcerts seeds the ["user","me"] query with userProfileFixture, so the
+    // edit form prefills from that cached PROFILE-001 read (no prop drilling from CB-14).
+    httpMocks.patch.mockClear();
+    httpMocks.get.mockResolvedValue(envelope(userProfileFixture));
+
     renderWithConcerts(renderInShell("CB-14prime", <ProfileEditScreen />));
 
     expect(
@@ -1311,12 +1422,13 @@ describe("BuddyDuckApp screens", () => {
     expect(screen.getByText("11 / 12")).toBeInTheDocument();
     expect(screen.queryByLabelText("소개글")).not.toBeInTheDocument();
 
+    // 비공개 was removed; age/gender are required enums only.
     const ageGroup = screen.getByRole("group", { name: "연령대 선택" });
     expect(
       within(ageGroup)
         .getAllByRole("button")
         .map((button) => button.textContent),
-    ).toEqual(["10대", "20대", "30대", "40대+", "비공개"]);
+    ).toEqual(["10대", "20대", "30대", "40대+"]);
     expect(
       within(ageGroup).getByRole("button", { name: "20대" }),
     ).toHaveAttribute("aria-pressed", "true");
@@ -1331,13 +1443,22 @@ describe("BuddyDuckApp screens", () => {
       within(genderGroup).getByRole("button", { name: "여성" }),
     ).toHaveAttribute("aria-pressed", "true");
 
+    // Change the age 20대 → 30대, then save: PATCH the new enum body and route to /profile.
     fireEvent.click(within(ageGroup).getByRole("button", { name: "30대" }));
     expect(
       within(ageGroup).getByRole("button", { name: "30대" }),
     ).toHaveAttribute("aria-pressed", "true");
-    expect(screen.getByRole("link", { name: "저장" })).toHaveAttribute(
-      "href",
-      "/profile",
+
+    fireEvent.click(screen.getByRole("button", { name: "저장" }));
+    await waitFor(() =>
+      expect(httpMocks.patch).toHaveBeenCalledWith("/api/users/me/profile", {
+        nickname: "moon_armies",
+        ageRange: "THIRTIES",
+        gender: "FEMALE",
+      }),
+    );
+    await waitFor(() =>
+      expect(navigationMocks.push).toHaveBeenCalledWith("/profile"),
     );
   });
 });

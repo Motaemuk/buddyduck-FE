@@ -20,7 +20,6 @@ const publicRoutes = [
 const protectedRoutes = [
   ["/home", "다가오는 공연"],
   ["/rooms", "이 공연에서 내 관심 태그"],
-  ["/my-rooms", "오늘 / 이번 주"],
   ["/rooms/host", "내 역할: 방장"],
   ["/rooms/member", "참여 확정"],
   ["/rooms/pending", "승인 대기 중"],
@@ -33,7 +32,6 @@ const protectedRoutes = [
   ["/timetable", "일정 수정"],
   ["/map", "지도"],
   ["/memories", "사진 12 · 영상 3"],
-  ["/profile", "프로필"],
 ] as const;
 
 test.describe("BuddyDuck runtime UI", () => {
@@ -102,6 +100,44 @@ test.describe("BuddyDuck runtime UI", () => {
       });
     }
 
+    test("CB-06 my-rooms is fully behind ROOM-004's Bearer read; an invalid session bounces to /", async ({
+      page,
+    }) => {
+      // ROOM-004 (GET /api/me/rooms) requires a real Bearer token and has no MSW mock,
+      // so the whole screen's content is behind the real backend. The e2e fake token is
+      // rejected (401 COMMON401) and the global http interceptor clears the cookie and
+      // redirects to /. The list therefore can't be exercised end-to-end without a real
+      // Kakao session — the same limitation documented for CB-02 and CB-04.
+      await page.goto("/my-rooms");
+      await expect(page).toHaveURL(/\/$/);
+    });
+
+    test("CB-14 profile header is behind PROFILE-001's Bearer read; an invalid session bounces to /", async ({
+      page,
+    }) => {
+      // PROFILE-001 (GET /api/users/me) requires a real Bearer token and has no MSW mock.
+      // The profile header card is driven by it, so the e2e fake token is rejected
+      // (401 COMMON401) and the global http interceptor clears the cookie and redirects
+      // to /. The rendered profile therefore can't be exercised end-to-end without a real
+      // Kakao session — the same limitation documented for CB-02, CB-04, and CB-06. The
+      // CB-14 unit test covers the header/stats/menu rendering by seeding the query.
+      await page.goto("/profile");
+      await expect(page).toHaveURL(/\/$/);
+    });
+
+    test("CB-14′ profile edit prefills from PROFILE-001; an invalid session bounces to /", async ({
+      page,
+    }) => {
+      // The edit form prefills from PROFILE-001 (GET /api/users/me, Bearer, no MSW mock)
+      // and saves via PROFILE-002 (PATCH /api/users/me/profile, also real-backend-only).
+      // With the e2e fake token the prefill read returns 401 COMMON401, so the global http
+      // interceptor clears the cookie and redirects to /. The form and its PATCH save can
+      // only be exercised with a real, profile-completed Kakao session; the CB-14prime unit
+      // test covers prefill + the PROFILE-002 PATCH body/navigation by seeding the query.
+      await page.goto("/profile/edit");
+      await expect(page).toHaveURL(/\/$/);
+    });
+
     test("CB-02 nickname onboarding gates the 완료 button until all fields are valid", async ({
       page,
     }) => {
@@ -154,13 +190,12 @@ test.describe("BuddyDuck runtime UI", () => {
       await page.keyboard.press("Escape");
       await expect(page).toHaveURL(/\/rooms\?concertId=/);
 
-      await bottomNav
-        .getByRole("link", { name: "프로필", exact: true })
-        .click();
-      await expect(page).toHaveURL(/\/profile$/);
+      // /profile is fully behind PROFILE-001's Bearer read (see the CB-14 bounce test),
+      // so navigating there with the e2e fake token redirects to /. Assert the bottom-nav
+      // 프로필 link target instead of clicking through to an auth-gated screen.
       await expect(
         bottomNav.getByRole("link", { name: "프로필", exact: true }),
-      ).toHaveClass(/text-\[var\(--cb-yellow\)\]/);
+      ).toHaveAttribute("href", "/profile");
     });
 
     test("native scrollbars stay hidden on scrollable app surfaces", async ({
@@ -560,9 +595,7 @@ test.describe("BuddyDuck runtime UI", () => {
       );
     });
 
-    test("map fallback and profile edit render required states", async ({
-      page,
-    }) => {
+    test("map fallback renders required states", async ({ page }) => {
       await page.goto("/map");
       await expect(page.getByText(/Kakao Maps fallback/)).toBeVisible();
       await expect(
@@ -571,21 +604,9 @@ test.describe("BuddyDuck runtime UI", () => {
         ),
       ).toBeVisible();
 
-      await page.goto("/profile");
-      await expect(
-        page.getByRole("link", { name: /moon_armies/ }),
-      ).toHaveAttribute("href", "/profile/edit");
-      await expect(page.getByText("추억 사진")).toHaveCount(0);
-      await page.getByRole("button", { name: /알림 설정/ }).click();
-      await expect(page.getByRole("status")).toContainText(
-        "개발중인 기능입니다",
-      );
-      await page.getByRole("link", { name: /moon_armies/ }).click();
-      await expect(page).toHaveURL(/\/profile\/edit$/);
-      await page.getByLabel("닉네임").fill("newduck");
-      await page.getByRole("button", { name: "30대" }).click();
-      await page.getByRole("link", { name: "저장" }).click();
-      await expect(page).toHaveURL(/\/profile$/);
+      // The CB-14′ profile-edit screen is now behind PROFILE-001's Bearer prefill read,
+      // so a fake e2e session bounces it to / — asserted by the dedicated CB-14′ bounce
+      // test above, not here.
     });
 
     test("CB-03 through CB-12 follows the Hi-Fi page flow for an already-authenticated session", async ({
