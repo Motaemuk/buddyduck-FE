@@ -21,6 +21,7 @@ import { ProfileEditScreen } from "../profile/edit/_components/profile-edit-scre
 import { ProfileScreen } from "../profile/_components/profile-screen";
 import { CreateRoomScreen } from "../rooms/create/_components/create-room-screen";
 import { RoomDetailScreen } from "../rooms/_components/room-detail-screen";
+import { RoomDetailConnectedScreen } from "../rooms/_components/room-detail-connected-screen";
 import { RoomListScreen } from "../rooms/_components/room-list-screen";
 import { TimetableEditScreen } from "../timetable/_components/timetable-edit-screen";
 import { TimelineScreen } from "../timeline/_components/timeline-screen";
@@ -341,6 +342,16 @@ describe("BuddyDuckApp screens", () => {
     );
     expect(screen.getByText("굿즈 구매")).toBeInTheDocument();
     expect(screen.getByText("카페 투어")).toBeInTheDocument();
+    // The room card carries the concert-scoped list as its back target so the detail
+    // screen's 뒤로가기 returns to /rooms?concertId=100 instead of the unfiltered list.
+    expect(
+      screen.getByRole("link", {
+        name: /굿즈 줄 같이 서고 카페까지 같이 가요/,
+      }),
+    ).toHaveAttribute(
+      "href",
+      `/rooms/10?back=${encodeURIComponent("/rooms?concertId=100")}`,
+    );
     expect(screen.queryByText(/match/)).not.toBeInTheDocument();
     expect(screen.getByRole("link", { name: "방 만들기" })).toHaveAttribute(
       "href",
@@ -616,17 +627,19 @@ describe("BuddyDuckApp screens", () => {
       expect.stringContaining("포카 교환할 분 찾아요"),
     ]);
 
-    // Reduced card: title + role/status badge + link to the role-appropriate detail route.
+    // Reduced card: title + role/status badge + link to the backend-driven per-id detail.
+    // Each link carries /my-rooms as its back target so the detail 뒤로가기 returns here.
+    const myRoomsBack = `?back=${encodeURIComponent("/my-rooms")}`;
     expect(
       within(list()).getByRole("link", { name: /굿즈 동선 같이 맞출 분/ }),
-    ).toHaveAttribute("href", "/rooms/host");
+    ).toHaveAttribute("href", `/rooms/10${myRoomsBack}`);
     expect(
       within(list()).getByRole("link", { name: /카페 투어 같이 가요/ }),
-    ).toHaveAttribute("href", "/rooms/member");
+    ).toHaveAttribute("href", `/rooms/11${myRoomsBack}`);
     const pendingCard = within(list()).getByRole("link", {
       name: /포카 교환할 분 찾아요/,
     });
-    expect(pendingCard).toHaveAttribute("href", "/rooms/pending");
+    expect(pendingCard).toHaveAttribute("href", `/rooms/12${myRoomsBack}`);
     expect(within(pendingCard).getByText("승인 대기 중")).toBeInTheDocument();
 
     // Wireframe-style rich fields from the updated ROOM-004 payload.
@@ -865,6 +878,364 @@ describe("BuddyDuckApp screens", () => {
     expect(screen.getByText("승인 대기 0")).toBeInTheDocument();
     expect(screen.getByRole("status")).toHaveTextContent(
       "borahae__ 님의 신청을 삭제했어요",
+    );
+  });
+
+  it("CB-07A renders ROOM-003 host detail with the JOIN-003 applicant list and approves via JOIN-004", async () => {
+    const roomDetailHostFixture = {
+      id: 77,
+      title: "굿즈 동선 같이 맞출 분",
+      description: "굿즈 구매 후 카페도 들러요.",
+      roomStatus: "OPEN",
+      viewerRole: "HOST",
+      viewerJoinStatus: "APPROVED",
+      permissions: {
+        canRequestJoin: false,
+        canApproveJoinRequest: true,
+        canViewOpenChat: true,
+        canOpenTimeline: true,
+        canEditRoom: true,
+      },
+      pendingRequestCount: 1,
+      concert: {
+        id: 100,
+        title: "Stadium Tour - Night 1",
+        startAt: "2099-06-15T19:00:00+09:00",
+        venueName: "KSPO Dome",
+      },
+      meetingAt: "2099-06-15T14:00:00+09:00",
+      meetingPlaceName: "잠실역 5번 출구",
+      meetingPlaceAddress: "서울 송파구 잠실동",
+      roomTags: ["GOODS_BUYING", "CAFE_VISIT"],
+      memberCount: 2,
+      maxMembers: 4,
+      members: [
+        {
+          userId: 1,
+          nickname: "moon_armies",
+          ageRange: "TWENTIES",
+          gender: "FEMALE",
+          role: "HOST",
+          sharedInterestCount: 2,
+        },
+        {
+          userId: 2,
+          nickname: "goods_hunter",
+          ageRange: "THIRTIES",
+          gender: "MALE",
+          role: "MEMBER",
+          sharedInterestCount: 1,
+        },
+      ],
+      schedulePreview: [
+        {
+          slotId: 501,
+          order: 1,
+          title: "잠실역 5번 출구",
+          placeId: 11,
+          placeName: "잠실역 5번 출구",
+          slotType: "MEETING",
+          category: "MEETING",
+          startAt: "2099-06-15T14:00:00+09:00",
+          endAt: "2099-06-15T14:00:00+09:00",
+          dwellMinutes: 0,
+          locked: true,
+        },
+      ],
+    };
+    const joinRequestsFixture = {
+      items: [
+        {
+          requestId: 500,
+          userId: 7,
+          nickname: "winter_lover",
+          ageRange: "TWENTIES",
+          gender: "FEMALE",
+          message: "처음이라 같이 이동하고 싶어요.",
+          matchedTags: ["GOODS_BUYING"],
+          createdAt: "2020-06-01T12:00:00+09:00",
+        },
+      ],
+      page: 0,
+      size: 20,
+      hasNext: false,
+    };
+
+    httpMocks.post.mockClear();
+    httpMocks.post.mockResolvedValue(
+      envelope({ requestId: 500, status: "APPROVED", memberId: 7 }),
+    );
+    httpMocks.get.mockImplementation((url: string) => {
+      if (url.includes("/join-requests/me")) {
+        return Promise.resolve(envelope({ status: "APPROVED", message: "" }));
+      }
+      if (url.includes("/join-requests")) {
+        return Promise.resolve(envelope(joinRequestsFixture));
+      }
+      if (url.includes("/api/rooms/")) {
+        return Promise.resolve(envelope(roomDetailHostFixture));
+      }
+      if (url.includes("/api/concerts/")) {
+        // CONCERT-002 supplies the poster the hero shows (ROOM-003 carries none).
+        return Promise.resolve(
+          envelope({
+            ...concertDetailFixture,
+            posterUrl: "https://cdn.example.com/poster.jpg",
+          }),
+        );
+      }
+      return Promise.resolve(envelope({}));
+    });
+
+    const { container } = renderWithConcerts(
+      renderInShell("CB-07A", <RoomDetailConnectedScreen roomId="77" />),
+    );
+
+    await screen.findByText("굿즈 동선 같이 맞출 분");
+    expect(httpMocks.get).toHaveBeenCalledWith("/api/rooms/77");
+    // The concert poster (CONCERT-002, keyed off ROOM-003's concert.id) renders in the hero.
+    await waitFor(() =>
+      expect(
+        container.querySelector('img[src="https://cdn.example.com/poster.jpg"]'),
+      ).not.toBeNull(),
+    );
+    expect(
+      screen.getByText("내 역할: 방장 · 멤버 2 / 4"),
+    ).toBeInTheDocument();
+    // ROOM-003 member.
+    expect(screen.getByText("goods_hunter")).toBeInTheDocument();
+    // JOIN-003 applicant list (host only).
+    await screen.findByText("winter_lover");
+    expect(
+      screen.getByRole("heading", { name: "승인 대기 1" }),
+    ).toBeInTheDocument();
+
+    // JOIN-004 approve flow goes through the confirm modal to the real POST.
+    fireEvent.click(screen.getByRole("button", { name: "winter_lover 승인" }));
+    const dialog = screen.getByRole("dialog", { name: "멤버 승인 확인" });
+    fireEvent.click(within(dialog).getByRole("button", { name: "승인하기" }));
+    await waitFor(() =>
+      expect(httpMocks.post).toHaveBeenCalledWith(
+        "/api/rooms/77/join-requests/500/approve",
+        {},
+      ),
+    );
+  });
+
+  it("CB-07D renders a visitor whose 입장 신청 CTA is gated by ROOM-003 permissions", async () => {
+    const roomDetailVisitorFixture = {
+      id: 88,
+      title: "포카 교환 같이 하실 분",
+      description: null,
+      roomStatus: "OPEN",
+      viewerRole: "VISITOR",
+      viewerJoinStatus: "NOT_REQUESTED",
+      permissions: {
+        canRequestJoin: true,
+        canApproveJoinRequest: false,
+        canViewOpenChat: false,
+        canOpenTimeline: false,
+        canEditRoom: false,
+      },
+      pendingRequestCount: 0,
+      concert: {
+        id: 100,
+        title: "Stadium Tour - Night 1",
+        startAt: "2099-06-15T19:00:00+09:00",
+        venueName: "KSPO Dome",
+      },
+      meetingAt: "2099-06-15T14:00:00+09:00",
+      meetingPlaceName: "잠실역 5번 출구",
+      meetingPlaceAddress: "서울 송파구 잠실동",
+      roomTags: ["PHOTOCARD_TRADE"],
+      memberCount: 1,
+      maxMembers: 4,
+      members: [
+        {
+          userId: 1,
+          nickname: "moon_armies",
+          ageRange: "TWENTIES",
+          gender: "FEMALE",
+          role: "HOST",
+          sharedInterestCount: 1,
+        },
+      ],
+      schedulePreview: [],
+    };
+
+    httpMocks.get.mockImplementation((url: string) => {
+      if (url.includes("/api/rooms/")) {
+        return Promise.resolve(envelope(roomDetailVisitorFixture));
+      }
+      return Promise.resolve(envelope({}));
+    });
+
+    renderWithConcerts(
+      renderInShell("CB-07A", <RoomDetailConnectedScreen roomId="88" />),
+    );
+
+    await screen.findByText("포카 교환 같이 하실 분");
+    expect(screen.getByText(/공개 방 · 멤버 1 \/ 4/)).toBeInTheDocument();
+    const applyLink = screen.getByRole("link", { name: "입장 신청" });
+    expect(applyLink).toHaveAttribute("href", "/rooms/88?modal=apply");
+    // The host-only applicant section is absent for a visitor.
+    expect(screen.queryByText("방장만 보임")).not.toBeInTheDocument();
+  });
+
+  it("CB-07D disables the CTA and marks a rejected visitor's room as already-applied", async () => {
+    const rejectedVisitorFixture = {
+      id: 89,
+      title: "포카 교환 같이 하실 분",
+      description: null,
+      roomStatus: "OPEN",
+      viewerRole: "VISITOR",
+      // 거절당하면 viewerJoinStatus=REJECTED + canRequestJoin=false (JOIN-001 재신청은
+      // 409 JOIN01로 차단됨). CTA는 비활성화되고 "신청했던 방"으로 표시돼야 한다.
+      viewerJoinStatus: "REJECTED",
+      permissions: {
+        canRequestJoin: false,
+        canApproveJoinRequest: false,
+        canViewOpenChat: false,
+        canOpenTimeline: false,
+        canEditRoom: false,
+      },
+      pendingRequestCount: 0,
+      concert: {
+        id: 100,
+        title: "Stadium Tour - Night 1",
+        startAt: "2099-06-15T19:00:00+09:00",
+        venueName: "KSPO Dome",
+      },
+      meetingAt: "2099-06-15T14:00:00+09:00",
+      meetingPlaceName: "잠실역 5번 출구",
+      meetingPlaceAddress: "서울 송파구 잠실동",
+      roomTags: ["PHOTOCARD_TRADE"],
+      memberCount: 1,
+      maxMembers: 4,
+      members: [
+        {
+          userId: 1,
+          nickname: "moon_armies",
+          ageRange: "TWENTIES",
+          gender: "FEMALE",
+          role: "HOST",
+          sharedInterestCount: 1,
+        },
+      ],
+      schedulePreview: [],
+    };
+
+    httpMocks.get.mockImplementation((url: string) => {
+      if (url.includes("/api/rooms/")) {
+        return Promise.resolve(envelope(rejectedVisitorFixture));
+      }
+      return Promise.resolve(envelope({}));
+    });
+
+    renderWithConcerts(
+      renderInShell("CB-07A", <RoomDetailConnectedScreen roomId="89" showApplyModal />),
+    );
+
+    await screen.findByText("포카 교환 같이 하실 분");
+    // 거절 상태 표시.
+    expect(
+      screen.getByText(/신청이 거절된 방 · 멤버 1 \/ 4/),
+    ).toBeInTheDocument();
+    expect(screen.getByText("신청했던 방")).toBeInTheDocument();
+    // CTA는 navigable Link가 아니라 disabled 버튼이어야 한다.
+    expect(
+      screen.queryByRole("link", { name: "입장 신청" }),
+    ).not.toBeInTheDocument();
+    const cta = screen.getByRole("button", { name: "이미 신청했던 방이에요" });
+    expect(cta).toBeDisabled();
+    expect(
+      screen.getByText("한 번 신청한 방에는 다시 신청할 수 없어요"),
+    ).toBeInTheDocument();
+    // showApplyModal이 true여도 canRequestJoin=false면 신청 모달은 열리지 않는다.
+    expect(
+      screen.queryByRole("dialog", { name: "입장 신청 메시지" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("resolves the room detail 뒤로가기 target from back param, then concert, then fallback", async () => {
+    const roomDetailFixture = {
+      id: 88,
+      title: "포카 교환 같이 하실 분",
+      description: null,
+      roomStatus: "OPEN",
+      viewerRole: "VISITOR",
+      viewerJoinStatus: "NOT_REQUESTED",
+      permissions: {
+        canRequestJoin: true,
+        canApproveJoinRequest: false,
+        canViewOpenChat: false,
+        canOpenTimeline: false,
+        canEditRoom: false,
+      },
+      pendingRequestCount: 0,
+      concert: {
+        id: 100,
+        title: "Stadium Tour - Night 1",
+        startAt: "2099-06-15T19:00:00+09:00",
+        venueName: "KSPO Dome",
+      },
+      meetingAt: "2099-06-15T14:00:00+09:00",
+      meetingPlaceName: "잠실역 5번 출구",
+      meetingPlaceAddress: "서울 송파구 잠실동",
+      roomTags: ["PHOTOCARD_TRADE"],
+      memberCount: 1,
+      maxMembers: 4,
+      members: [
+        {
+          userId: 1,
+          nickname: "moon_armies",
+          ageRange: "TWENTIES",
+          gender: "FEMALE",
+          role: "HOST",
+          sharedInterestCount: 1,
+        },
+      ],
+      schedulePreview: [],
+    };
+    httpMocks.get.mockImplementation((url: string) => {
+      if (url.includes("/api/rooms/")) {
+        return Promise.resolve(envelope(roomDetailFixture));
+      }
+      return Promise.resolve(envelope({}));
+    });
+
+    // (c) No context yet (initial render, room not loaded) → unfiltered list fallback.
+    const fallback = renderWithConcerts(
+      renderInShell("CB-07A", <RoomDetailConnectedScreen roomId="88" />),
+    );
+    expect(screen.getByRole("link", { name: "뒤로" })).toHaveAttribute(
+      "href",
+      "/rooms",
+    );
+    fallback.unmount();
+
+    // (b) No back param, room loaded → derive the concert-scoped list from the response.
+    const derived = renderWithConcerts(
+      renderInShell("CB-07A", <RoomDetailConnectedScreen roomId="88" />),
+    );
+    await screen.findByText("포카 교환 같이 하실 분");
+    expect(screen.getByRole("link", { name: "뒤로" })).toHaveAttribute(
+      "href",
+      "/rooms?concertId=100",
+    );
+    derived.unmount();
+
+    // (a) Explicit back param wins, even after the room loads.
+    renderWithConcerts(
+      renderInShell(
+        "CB-07A",
+        <RoomDetailConnectedScreen roomId="88" backHref="/my-rooms" />,
+      ),
+    );
+    await screen.findByText("포카 교환 같이 하실 분");
+    expect(screen.getByRole("link", { name: "뒤로" })).toHaveAttribute(
+      "href",
+      "/my-rooms",
     );
   });
 

@@ -24,10 +24,6 @@ const protectedRoutes = [
   ["/rooms/member", "참여 확정"],
   ["/rooms/pending", "승인 대기 중"],
   ["/rooms/visitor", "공개 방"],
-  ["/rooms/r1", "내 역할: 방장"],
-  ["/rooms/r2", "참여 확정"],
-  ["/rooms/r3", "승인 대기 중"],
-  ["/rooms/r4", "공개 방"],
   ["/timeline", "MAP PREVIEW"],
   ["/timetable", "일정 수정"],
   ["/map", "지도"],
@@ -135,6 +131,21 @@ test.describe("BuddyDuck runtime UI", () => {
       // only be exercised with a real, profile-completed Kakao session; the CB-14prime unit
       // test covers prefill + the PROFILE-002 PATCH body/navigation by seeding the query.
       await page.goto("/profile/edit");
+      await expect(page).toHaveURL(/\/$/);
+    });
+
+    test("CB-07A~D room detail is behind ROOM-003's Bearer read; an invalid session bounces to /", async ({
+      page,
+    }) => {
+      // The connected /rooms/{roomId} detail (CB-07A/B/C/D) is driven by ROOM-003
+      // (GET /api/rooms/{roomId}, Bearer, no MSW mock) plus the JOIN-001~005 calls, so the
+      // whole screen is behind the real backend. The e2e fake token is rejected
+      // (401 COMMON401) and the global http interceptor clears the cookie and redirects to
+      // /. The rendered detail + approve/reject/apply flows therefore can't be exercised
+      // end-to-end without a real Kakao session — the same limitation documented for
+      // CB-02/04/06/14. The connected-screen unit test covers rendering + the role/permission
+      // branches by seeding the ["room", id] query and the JOIN envelopes.
+      await page.goto("/rooms/12345");
       await expect(page).toHaveURL(/\/$/);
     });
 
@@ -305,7 +316,7 @@ test.describe("BuddyDuck runtime UI", () => {
     test("room detail states and apply modal behave correctly", async ({
       page,
     }) => {
-      await page.goto("/rooms/r1");
+      await page.goto("/rooms/host");
       await expect(page.getByText("내 역할: 방장 · 멤버 2 / 4")).toBeVisible();
       await expect(
         page.getByRole("heading", { name: "승인 대기 2" }),
@@ -353,7 +364,7 @@ test.describe("BuddyDuck runtime UI", () => {
       ).toBeDisabled();
       await expect(page.getByRole("link", { name: "오픈채팅" })).toHaveCount(0);
 
-      await page.goto("/rooms/r4?modal=apply");
+      await page.goto("/rooms/visitor?modal=apply");
       const applyDialog = page.getByRole("dialog", {
         name: "입장 신청 메시지",
       });
@@ -364,7 +375,7 @@ test.describe("BuddyDuck runtime UI", () => {
         "60",
       );
       await applyDialog.getByRole("button", { name: "닫기" }).click();
-      await expect(page).toHaveURL(/\/rooms\/r4$/);
+      await expect(page).toHaveURL(/\/rooms\/visitor$/);
       await page.goto("/rooms/visitor?modal=apply");
       await expect(
         page.getByRole("dialog", { name: "입장 신청 메시지" }),
@@ -376,10 +387,26 @@ test.describe("BuddyDuck runtime UI", () => {
       await expect(page).toHaveURL(/\/rooms\/pending$/);
     });
 
+    test("dynamic room detail 뒤로가기 returns to the concert-scoped list via the back param", async ({
+      page,
+    }) => {
+      // The detail's 뒤로 target is driven by the back query param and is independent of
+      // whether the ROOM-003 fetch resolves, so this navigates deterministically without
+      // seeded backend rooms. Mirrors the CB-04 room card → detail → 뒤로 round trip.
+      const back = encodeURIComponent("/rooms?concertId=100");
+      await page.goto(`/rooms/999999?back=${back}`);
+
+      const backLink = page.getByRole("link", { name: "뒤로" });
+      await expect(backLink).toHaveAttribute("href", "/rooms?concertId=100");
+
+      await backLink.click();
+      await expect(page).toHaveURL(/\/rooms\?concertId=100$/);
+    });
+
     test("room detail uses the fixed CB-07 bottom CTA instead of the global bottom nav", async ({
       page,
     }) => {
-      await page.goto("/rooms/r2");
+      await page.goto("/rooms/member");
 
       await expect(page.locator("nav")).toHaveCount(0);
       const openTimeline = page.getByRole("link", { name: "Open Timeline" });
@@ -618,12 +645,11 @@ test.describe("BuddyDuck runtime UI", () => {
       await expect(page).toHaveURL(/\/rooms\?concertId=/);
       await expect(page.getByText("이 공연에서 내 관심 태그")).toBeVisible();
 
-      // CB-04 room cards now come from the live ROOM-001 endpoint (temp
-      // mocked); room detail (CB-07) is still backed by the legacy static
-      // dataset, so this flow continues from a known CB-07 fixture room
-      // rather than the dynamic CB-04 card href.
-      await page.goto("/rooms/r4");
-      await expect(page).toHaveURL(/\/rooms\/r4$/);
+      // CB-04 room cards now come from the live ROOM-001 endpoint; the per-id room detail
+      // (CB-07, /rooms/{id}) is Bearer-gated and bounces without a real session, so this
+      // UI-only flow continues from the static /rooms/visitor wireframe demo route.
+      await page.goto("/rooms/visitor");
+      await expect(page).toHaveURL(/\/rooms\/visitor$/);
       await page.getByRole("link", { name: "입장 신청" }).click();
       await expect(
         page.getByRole("dialog", { name: "입장 신청 메시지" }),
