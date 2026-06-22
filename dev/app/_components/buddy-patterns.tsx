@@ -27,7 +27,7 @@ import {
   formatRoomMeetingTime,
 } from "@/lib/format";
 import {
-  getKakaoMapKey,
+  getKakaoMapAppKey,
   loadKakaoMaps,
   type KakaoMapInstance,
   type KakaoMapsApi,
@@ -290,7 +290,7 @@ export function MapFallback({ hasKey }: { hasKey: boolean }) {
       Kakao Maps fallback ·{" "}
       {hasKey
         ? "스크립트 로딩 중 또는 실패"
-        : "NEXT_PUBLIC_KAKAO_MAP_KEY 미설정"}
+        : "NEXT_PUBLIC_KAKAO_MAP_APP_KEY 미설정"}
     </div>
   );
 }
@@ -360,6 +360,7 @@ export function RouteMapCanvas({
   className,
   showLabel = true,
   showFallbackNotice = true,
+  showDayToggle = true,
   full = false,
 }: {
   stops: TimetableStop[];
@@ -372,15 +373,36 @@ export function RouteMapCanvas({
   className?: string;
   showLabel?: boolean;
   showFallbackNotice?: boolean;
+  showDayToggle?: boolean;
   full?: boolean;
 }) {
-  const hasKakaoKey = Boolean(getKakaoMapKey());
+  const hasKakaoKey = Boolean(getKakaoMapAppKey());
   const [internalDay, setInternalDay] = useState<TimelineDay>("d-day");
   const [kakao, setKakao] = useState<KakaoMapsApi | null>(null);
   const [mapState, setMapState] = useState<"loading" | "ready" | "fallback">(
     hasKakaoKey ? "loading" : "fallback",
   );
   const mapRef = useRef<HTMLDivElement>(null);
+  // Persist the Kakao map + its overlays across renders so hover/selection/parent
+  // re-renders never recreate the map (which would reset the user's manual zoom/pan and
+  // cause the "jumping" on zoom). The map is created once and reused; only the route data
+  // signature changing triggers a redraw.
+  const mapInstanceRef = useRef<KakaoMapInstance | null>(null);
+  const pinButtonsRef = useRef<Map<string, HTMLButtonElement>>(new Map());
+  // Latest props read inside the data-keyed draw effect without making them effect deps
+  // (so the effect only re-runs on real route-data changes, not on every render).
+  const stopsRef = useRef(stops);
+  const onSelectStopRef = useRef(onSelectStop);
+  const onHoverStopRef = useRef(onHoverStop);
+  const selectedStopIdRef = useRef(selectedStopId);
+  const activeStopIdRef = useRef<string | null>(activeStopId ?? null);
+  useEffect(() => {
+    stopsRef.current = stops;
+    onSelectStopRef.current = onSelectStop;
+    onHoverStopRef.current = onHoverStop;
+    selectedStopIdRef.current = selectedStopId;
+    activeStopIdRef.current = activeStopId ?? null;
+  });
   const routePoints = stops
     .map((stop) => `${stop.mapPoint.left},${stop.mapPoint.top}`)
     .join(" ");
@@ -396,6 +418,19 @@ export function RouteMapCanvas({
           y: 50 - focusedStop.mapPoint.top,
         }
       : null;
+
+  // A signature of the actual route data (ids + coordinates). The Kakao draw effect keys
+  // off this string instead of the `stops` array identity, so a parent re-render that
+  // produces a fresh-but-equal array (e.g. CB-09 rebuilds `stops` every render) does NOT
+  // redraw the map — only a genuine route change does.
+  const stopsSignature = stops
+    .map((stop) => `${stop.id}@${stop.mapPoint.lat},${stop.mapPoint.lng}`)
+    .join("|");
+  // Coordinates of the currently selected stop, as primitives, so the pan effect fires
+  // only when the SELECTION changes — never on manual pan/zoom or unrelated re-renders.
+  const selectedStop = stops.find((stop) => stop.id === selectedStopId);
+  const selectedLat = selectedStop?.mapPoint.lat ?? null;
+  const selectedLng = selectedStop?.mapPoint.lng ?? null;
 
   useEffect(() => {
     if (!hasKakaoKey) return;
@@ -413,32 +448,55 @@ export function RouteMapCanvas({
     };
   }, [hasKakaoKey]);
 
+  // Create the map once and (re)draw the polyline + pins only when the route data changes.
+  // Crucially this does NOT depend on selectedStopId / activeStopId / the stops array
+  // identity, so hovering, selecting, or a parent re-render never recreates the map or
+  // re-fits the viewport — that is what previously caused the camera to jump while the
+  // user was zooming or panning.
   useEffect(() => {
     if (!kakao || !mapRef.current || !hasStops) return;
 
-    const overlays: KakaoOverlay[] = [];
-    const points = stops.map(
+    const currentStops = stopsRef.current;
+    const points = currentStops.map(
       (stop) => new kakao.maps.LatLng(stop.mapPoint.lat, stop.mapPoint.lng),
     );
-    const map = new kakao.maps.Map(mapRef.current, {
-      center: points[Math.min(1, points.length - 1)],
-      level: full ? 5 : 6,
-    });
-    const bounds = new kakao.maps.LatLngBounds();
-    points.forEach((point) => bounds.extend(point));
-    map.setBounds(bounds);
-    map.relayout();
-    if (full) {
-      const selectedPoint = stops.find((stop) => stop.id === selectedStopId);
-      if (selectedPoint) {
-        map.panTo(
-          new kakao.maps.LatLng(
-            selectedPoint.mapPoint.lat,
-            selectedPoint.mapPoint.lng,
-          ),
-        );
-      }
+
+    let map = mapInstanceRef.current;
+    if (!map) {
+      map = new kakao.maps.Map(mapRef.current, {
+        center: points[Math.min(1, points.length - 1)],
+        level: full ? FULL_MAP_INITIAL_LEVEL : 6,
+      });
+      mapInstanceRef.current = map;
     }
+    map.relayout();
+
+    if (full) {
+      // Full-screen map (CB-12): start CLOSE to the focused stop so the user sees its
+      // surroundings, instead of fitting the whole (possibly far-apart) route — which
+      // would zoom way out. The user can pan/zoom out from there; selecting another stop
+      // pans to it at the same zoom.
+      const focusStop =
+        currentStops.find((stop) => stop.id === selectedStopIdRef.current) ??
+        currentStops[0];
+      if (focusStop) {
+        map.setCenter(
+          new kakao.maps.LatLng(focusStop.mapPoint.lat, focusStop.mapPoint.lng),
+        );
+        map.setLevel(FULL_MAP_INITIAL_LEVEL);
+      }
+    } else {
+      // Small inline preview (CB-09): fitting the whole route is the right glanceable view.
+      const bounds = new kakao.maps.LatLngBounds();
+      points.forEach((point) => bounds.extend(point));
+      map.setBounds(bounds);
+    }
+
+    // Clear any stale pin references; React runs this effect's previous cleanup before
+    // re-running, so prior overlays are already detached.
+    const overlays: KakaoOverlay[] = [];
+    const pinButtons = pinButtonsRef.current;
+    pinButtons.clear();
 
     overlays.push(
       new kakao.maps.Polyline({
@@ -451,16 +509,18 @@ export function RouteMapCanvas({
       }),
     );
 
-    stops.forEach((stop) => {
+    const activeMap = map;
+    currentStops.forEach((stop) => {
       const content = createKakaoPinButton(
         kakao,
-        map,
+        activeMap,
         stop,
-        selectedStopId,
-        activeStopId ?? null,
-        onSelectStop,
-        onHoverStop,
+        selectedStopIdRef.current,
+        activeStopIdRef.current,
+        (stopId) => onSelectStopRef.current(stopId),
+        (stopId) => onHoverStopRef.current?.(stopId),
       );
+      pinButtons.set(stop.id, content);
       const overlay = new kakao.maps.CustomOverlay({
         position: new kakao.maps.LatLng(stop.mapPoint.lat, stop.mapPoint.lng),
         content,
@@ -468,23 +528,36 @@ export function RouteMapCanvas({
         yAnchor: 0.85,
         clickable: true,
       });
-      overlay.setMap(map);
+      overlay.setMap(activeMap);
       overlays.push(overlay);
     });
 
     return () => {
       overlays.forEach((overlay) => overlay.setMap(null));
+      pinButtons.clear();
     };
-  }, [
-    activeStopId,
-    full,
-    hasStops,
-    kakao,
-    onHoverStop,
-    onSelectStop,
-    selectedStopId,
-    stops,
-  ]);
+  }, [kakao, hasStops, full, stopsSignature]);
+
+  // Reflect hover/selection by updating the existing pin buttons in place — no overlay or
+  // map recreation, so it can never disturb the camera.
+  useEffect(() => {
+    pinButtonsRef.current.forEach((button, stopId) => {
+      const stop = stops.find((item) => item.id === stopId);
+      if (stop) {
+        applyKakaoPinState(button, stop, selectedStopId, activeStopId ?? null);
+      }
+    });
+  }, [selectedStopId, activeStopId, stops]);
+
+  // Pan to the selected stop on the full map, keyed on the selected stop's COORDINATES so
+  // it fires only when the selection actually changes — never on manual pan/zoom. panTo
+  // preserves the current zoom level, so it won't fight the user's zoom.
+  useEffect(() => {
+    if (!full || !kakao || selectedLat == null || selectedLng == null) return;
+    const map = mapInstanceRef.current;
+    if (!map) return;
+    map.panTo(new kakao.maps.LatLng(selectedLat, selectedLng));
+  }, [full, kakao, selectedLat, selectedLng]);
 
   const showMockLayer = mapState !== "ready";
 
@@ -540,11 +613,13 @@ export function RouteMapCanvas({
               top={stop.mapPoint.top}
               selected={selectedStopId === stop.id}
               active={activeStopId === stop.id}
-              anchor={stop.locked}
+              anchor={stop.locked || Boolean(stop.anchorMarker)}
               onSelect={(id) => onSelectStop(String(id))}
               onHover={(id) => onHoverStop?.(id ? String(id) : null)}
             >
-              {stop.locked ? (
+              {stop.anchorMarker === "start" ? (
+                <MapPinIcon size={14} fill="currentColor" />
+              ) : stop.anchorMarker === "end" || stop.locked ? (
                 <Star size={14} fill="currentColor" />
               ) : (
                 getStopMarkerLabel(stop)
@@ -553,41 +628,43 @@ export function RouteMapCanvas({
           ))}
         </div>
       ) : null}
-      {showLabel ? (
+      {showLabel && mapState !== "ready" ? (
         <span className="absolute left-3.5 top-3 z-[4] rounded-[var(--r-sm)] border border-[var(--cb-line)] bg-[rgba(15,15,17,.7)] px-2 py-1 text-[9px] font-bold tracking-[.1em] text-[var(--cb-text-3)] [font-family:var(--mono)]">
           MAP PREVIEW
         </span>
       ) : null}
-      <div className="absolute right-3.5 top-3 z-[4] flex rounded-[var(--r-pill)] border border-[var(--cb-line)] bg-[rgba(15,15,17,.85)] p-[3px] backdrop-blur">
-        <button
-          aria-label="D-Day 일정 보기"
-          aria-pressed={currentDay === "d-day"}
-          className={cn(
-            "rounded-[var(--r-pill)] px-[13px] py-[5px] text-[11.5px] font-bold text-[var(--cb-text-2)] transition duration-150 hover:bg-[var(--cb-surface-3)] active:scale-95 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[var(--cb-yellow)]",
-            currentDay === "d-day" &&
-              "bg-[var(--cb-yellow)] text-[var(--cb-on-yellow)] hover:bg-[var(--cb-yellow-2)]",
-          )}
-          onClick={() => setCurrentDay("d-day")}
-          type="button"
-        >
-          D-Day
-          <span className="sr-only"> 일정 보기</span>
-        </button>
-        <button
-          aria-label="D+1 일정 보기"
-          aria-pressed={currentDay === "d-plus-1"}
-          className={cn(
-            "rounded-[var(--r-pill)] px-[13px] py-[5px] text-[11.5px] font-bold text-[var(--cb-text-2)] transition duration-150 hover:bg-[var(--cb-surface-3)] active:scale-95 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[var(--cb-yellow)]",
-            currentDay === "d-plus-1" &&
-              "bg-[var(--cb-yellow)] text-[var(--cb-on-yellow)] hover:bg-[var(--cb-yellow-2)]",
-          )}
-          onClick={() => setCurrentDay("d-plus-1")}
-          type="button"
-        >
-          D+1
-          <span className="sr-only"> 일정 보기</span>
-        </button>
-      </div>
+      {showDayToggle ? (
+        <div className="absolute right-3.5 top-3 z-[4] flex rounded-[var(--r-pill)] border border-[var(--cb-line)] bg-[rgba(15,15,17,.85)] p-[3px] backdrop-blur">
+          <button
+            aria-label="D-Day 일정 보기"
+            aria-pressed={currentDay === "d-day"}
+            className={cn(
+              "rounded-[var(--r-pill)] px-[13px] py-[5px] text-[11.5px] font-bold text-[var(--cb-text-2)] transition duration-150 hover:bg-[var(--cb-surface-3)] active:scale-95 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[var(--cb-yellow)]",
+              currentDay === "d-day" &&
+                "bg-[var(--cb-yellow)] text-[var(--cb-on-yellow)] hover:bg-[var(--cb-yellow-2)]",
+            )}
+            onClick={() => setCurrentDay("d-day")}
+            type="button"
+          >
+            D-Day
+            <span className="sr-only"> 일정 보기</span>
+          </button>
+          <button
+            aria-label="D+1 일정 보기"
+            aria-pressed={currentDay === "d-plus-1"}
+            className={cn(
+              "rounded-[var(--r-pill)] px-[13px] py-[5px] text-[11.5px] font-bold text-[var(--cb-text-2)] transition duration-150 hover:bg-[var(--cb-surface-3)] active:scale-95 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[var(--cb-yellow)]",
+              currentDay === "d-plus-1" &&
+                "bg-[var(--cb-yellow)] text-[var(--cb-on-yellow)] hover:bg-[var(--cb-yellow-2)]",
+            )}
+            onClick={() => setCurrentDay("d-plus-1")}
+            type="button"
+          >
+            D+1
+            <span className="sr-only"> 일정 보기</span>
+          </button>
+        </div>
+      ) : null}
       {!hasStops ? (
         <div className="absolute left-4 right-4 top-1/2 z-[5] -translate-y-1/2 rounded-[var(--r-md)] border border-[var(--cb-line)] bg-[rgba(14,14,16,.84)] p-3 text-center text-[12px] font-semibold text-[var(--cb-text-2)] backdrop-blur">
           선택한 날짜의 일정은 아직 등록되지 않았어요
@@ -627,17 +704,28 @@ export function MapPlaceCard({
       </span>
       <div className="min-w-0 flex-1">
         <div className="truncate text-[13px] font-bold">{stop.place}</div>
-        <div className="mt-1 text-[11px] text-[var(--cb-text-2)]">
-          {stop.category} · Kakao
-        </div>
-        <div className="mt-1 truncate text-[11px] text-[var(--cb-text-3)]">
-          {stop.address}
-        </div>
-        <div className="mt-1 flex items-center gap-1 text-[11px] text-[var(--cb-text-3)]">
-          <Clock3 size={13} /> {stop.time} ·{" "}
-          {stop.locked ? "도착 버퍼" : "머무는 시간"}{" "}
-          {formatStopMinutes(stop.dwellMinutes)}
-        </div>
+        {/* MAP-001 (CB-12) only carries title + coordinates, so category/address/time/
+            dwell are rendered ONLY when present — no fake "· Kakao" / empty address /
+            "0분" lines. The CB-12 caller passes empty strings + 0; richer callers (the
+            legacy timetable store) still populate them. */}
+        {stop.category ? (
+          <div className="mt-1 text-[11px] text-[var(--cb-text-2)]">
+            {stop.category} · Kakao
+          </div>
+        ) : null}
+        {stop.address ? (
+          <div className="mt-1 truncate text-[11px] text-[var(--cb-text-3)]">
+            {stop.address}
+          </div>
+        ) : null}
+        {stop.time || stop.dwellMinutes > 0 ? (
+          <div className="mt-1 flex items-center gap-1 text-[11px] text-[var(--cb-text-3)]">
+            <Clock3 size={13} />
+            {stop.time ? <span>{stop.time} ·</span> : null}{" "}
+            {stop.locked ? "도착 버퍼" : "머무는 시간"}{" "}
+            {formatStopMinutes(stop.dwellMinutes)}
+          </div>
+        ) : null}
       </div>
       <button
         aria-label={hasNextStop ? "다음 동선으로 이동" : "마지막 동선입니다"}
@@ -662,6 +750,8 @@ export function formatStopMinutes(minutes: number) {
 }
 
 export function getMapPinLabel(stop: TimetableStop) {
+  if (stop.anchorMarker === "start") return `지도 핀 출발: ${stop.place}`;
+  if (stop.anchorMarker === "end") return `지도 핀 도착: ${stop.place}`;
   return stop.locked
     ? `지도 핀 공연: ${stop.place}`
     : `지도 핀 ${getStopMarkerLabel(stop)}: ${stop.place}`;
@@ -669,6 +759,38 @@ export function getMapPinLabel(stop: TimetableStop) {
 
 export function getStopMarkerLabel(stop: TimetableStop) {
   return stop.pinLabel ?? stop.id.replace(/^\D+/, "");
+}
+
+// Initial Kakao zoom level for the full-screen route map (CB-12). Lower = closer; ~4 shows
+// the focused stop's neighborhood so a far-apart route starts near instead of zoomed out.
+const FULL_MAP_INITIAL_LEVEL = 4;
+
+// Apply the selected/active visual state to an existing Kakao pin button in place (used
+// for both the initial render and live hover/selection updates), so reflecting selection
+// never requires recreating the overlay or the map.
+function applyKakaoPinState(
+  button: HTMLButtonElement,
+  stop: TimetableStop,
+  selectedStopId: string,
+  activeStopId: string | null,
+) {
+  const isSelected = selectedStopId === stop.id;
+  const isActive = isSelected || activeStopId === stop.id;
+  const isAnchor = Boolean(stop.locked) || Boolean(stop.anchorMarker);
+  button.dataset.active = isActive ? "true" : "false";
+  button.dataset.selected = isSelected ? "true" : "false";
+  if (isSelected) button.setAttribute("aria-current", "true");
+  else button.removeAttribute("aria-current");
+  button.className = cn(
+    "grid h-[30px] w-[30px] rotate-[-45deg] place-items-center rounded-[50%_50%_50%_2px] border-[1.5px] text-[12px] font-black shadow-[0_6px_14px_-4px_rgba(0,0,0,.7)] transition duration-150",
+    isAnchor
+      ? "border-[var(--cb-yellow)] bg-[var(--cb-yellow)] text-[var(--cb-on-yellow)] shadow-[0_0_0_4px_rgba(253,190,13,.18),0_6px_14px_-4px_rgba(0,0,0,.7)]"
+      : "border-[var(--cb-line-2)] bg-[var(--cb-surface-1)] text-[var(--cb-text)]",
+    isActive && !isAnchor
+      ? "scale-110 border-[var(--cb-yellow)] bg-[var(--cb-yellow)] text-[var(--cb-on-yellow)] shadow-[0_0_0_4px_rgba(253,190,13,.18),0_6px_14px_-4px_rgba(0,0,0,.7)]"
+      : null,
+    isActive && isAnchor ? "scale-110" : null,
+  );
 }
 
 function createKakaoPinButton(
@@ -681,23 +803,16 @@ function createKakaoPinButton(
   onHoverStop?: (stopId: string | null) => void,
 ) {
   const button = document.createElement("button");
-  const isActive = selectedStopId === stop.id || activeStopId === stop.id;
   button.type = "button";
   button.ariaLabel = getMapPinLabel(stop);
-  button.dataset.active = isActive ? "true" : "false";
-  button.dataset.selected = selectedStopId === stop.id ? "true" : "false";
-  if (selectedStopId === stop.id) button.setAttribute("aria-current", "true");
-  button.className = cn(
-    "grid h-[30px] w-[30px] rotate-[-45deg] place-items-center rounded-[50%_50%_50%_2px] border-[1.5px] text-[12px] font-black shadow-[0_6px_14px_-4px_rgba(0,0,0,.7)] transition duration-150",
-    stop.locked
-      ? "border-[var(--cb-yellow)] bg-[var(--cb-yellow)] text-[var(--cb-on-yellow)] shadow-[0_0_0_4px_rgba(253,190,13,.18),0_6px_14px_-4px_rgba(0,0,0,.7)]"
-      : "border-[var(--cb-line-2)] bg-[var(--cb-surface-1)] text-[var(--cb-text)]",
-    isActive && !stop.locked
-      ? "scale-110 border-[var(--cb-yellow)] bg-[var(--cb-yellow)] text-[var(--cb-on-yellow)] shadow-[0_0_0_4px_rgba(253,190,13,.18),0_6px_14px_-4px_rgba(0,0,0,.7)]"
-      : null,
-    isActive && stop.locked ? "scale-110" : null,
-  );
-  button.innerHTML = `<span class="rotate-45">${stop.locked ? "★" : getStopMarkerLabel(stop)}</span>`;
+  applyKakaoPinState(button, stop, selectedStopId, activeStopId);
+  const markerContent =
+    stop.anchorMarker === "start"
+      ? '<svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor" aria-hidden="true"><path d="M12 2a7 7 0 0 0-7 7c0 4.5 7 13 7 13s7-8.5 7-13a7 7 0 0 0-7-7z"/></svg>'
+      : stop.anchorMarker === "end" || stop.locked
+        ? "★"
+        : getStopMarkerLabel(stop);
+  button.innerHTML = `<span class="rotate-45">${markerContent}</span>`;
   button.addEventListener("click", () => {
     kakao.maps.event.preventMap();
     onSelectStop(stop.id);

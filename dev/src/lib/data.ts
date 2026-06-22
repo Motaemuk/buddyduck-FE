@@ -99,6 +99,9 @@ export type TimetableStop = {
   anchorTitle?: string;
   anchorSubtitle?: string;
   locked?: boolean;
+  // Map marker variant for route maps: "start" renders a pin (출발), "end" renders a star
+  // (도착). When unset, falls back to the legacy `locked`→star / numbered-label behavior.
+  anchorMarker?: "start" | "end";
 };
 
 export type PlaceFixture = {

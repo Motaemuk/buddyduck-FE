@@ -7,6 +7,7 @@ export type KakaoLatLng = {
 export type KakaoMapInstance = {
   setBounds: (bounds: KakaoLatLngBounds) => void;
   setCenter: (latlng: KakaoLatLng) => void;
+  setLevel: (level: number) => void;
   panTo: (latlng: KakaoLatLng) => void;
   relayout: () => void;
 };
@@ -110,7 +111,10 @@ export function getKakaoMapAppKey() {
 
 export function loadKakaoMaps(): Promise<KakaoMapsApi | null> {
   if (typeof window === "undefined") return Promise.resolve(null);
-  const key = getKakaoMapKey();
+  // The Kakao Maps JS key actually present in dev/.env is NEXT_PUBLIC_KAKAO_MAP_APP_KEY
+  // (the legacy NEXT_PUBLIC_KAKAO_MAP_KEY is unset). Use the app key (with the legacy
+  // fallback) so the route map renders instead of falling back.
+  const key = getKakaoMapAppKey();
   if (!key) return Promise.resolve(null);
   if (window.kakao?.maps?.load) {
     return new Promise((resolve) => {
