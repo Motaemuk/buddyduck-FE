@@ -24,7 +24,7 @@ const protectedRoutes = [
   ["/rooms/member", "참여 확정"],
   ["/rooms/pending", "승인 대기 중"],
   ["/rooms/visitor", "공개 방"],
-  ["/timeline", "MAP PREVIEW"],
+  ["/timeline", "타임라인"],
   ["/timetable", "일정 수정"],
   ["/map", "지도"],
   ["/memories", "사진 12 · 영상 3"],
@@ -444,196 +444,74 @@ test.describe("BuddyDuck runtime UI", () => {
       await expect(page).toHaveURL(/\/rooms\/host$/);
     });
 
-    test("timetable edits, place add, timeline, and map share the same session data", async ({
+    test("CB-11 timetable edit shows guidance and skips the draft read without a roomId", async ({
       page,
     }) => {
+      // CB-11 now bootstraps its editable draft from SCHEDULE-001 via ?roomId=. With no
+      // roomId there is nothing to load, so the screen shows guidance instead of firing a
+      // Bearer-gated read, and the bottom nav stays hidden.
       await page.goto("/timetable");
-      await expect(page.getByText("2026.06.15 (월) — D-Day")).toBeVisible();
+      await expect(page.getByText("일정 수정").first()).toBeVisible();
+      await expect(page.getByText("방을 먼저 선택해 주세요")).toBeVisible();
       await expect(page.locator("nav")).toHaveCount(0);
-
-      for (let i = 0; i < 6; i += 1) {
-        await page
-          .getByRole("button", { name: "KSPO Dome 굿즈 라인 머무는 시간 감소" })
-          .click();
-        await page
-          .getByRole("button", { name: "잠실 카페 mood 머무는 시간 감소" })
-          .click();
-      }
-
-      await page.getByRole("link", { name: "장소 추가" }).click();
-      await expect(page).toHaveURL(/\/places$/);
-      await expect(page.locator("nav")).toHaveCount(0);
-      await page
-        .getByRole("searchbox", { name: "장소명 또는 주소 검색" })
-        .fill("토스트");
-      await page.getByRole("button", { name: "식당" }).click();
-      await page
-        .locator("[data-place-result]", { hasText: "테이크아웃 토스트 잠실점" })
-        .getByRole("button", { name: "추가" })
-        .click();
-
-      await expect(page).toHaveURL(/\/timetable$/);
-      await expect(page.getByText("테이크아웃 토스트 잠실점")).toBeVisible();
-      await page.getByRole("button", { name: "수정 완료" }).click();
-      await expect(page).toHaveURL(/\/timeline$/);
-      await expect(page.getByText("테이크아웃 토스트 잠실점")).toBeVisible();
-      await expect(page.getByText("머무는 시간 30분").first()).toBeVisible();
-
-      await page.getByRole("link", { name: "지도 CB-12", exact: true }).click();
-      await expect(page).toHaveURL(/\/map$/);
-      const toastPin = page.getByRole("button", {
-        name: "지도 핀 4: 테이크아웃 토스트 잠실점",
-      });
-      await expect(toastPin).toBeVisible();
-      await toastPin.click();
-      await expect(page.getByText("테이크아웃 토스트 잠실점")).toBeVisible();
+      await expect(
+        page.getByRole("link", { name: "내 방으로 가기" }),
+      ).toHaveAttribute("href", "/my-rooms");
     });
 
-    test("timetable grip drag reorders place blocks before completing edits", async ({
+    test("CB-11 timetable edit is behind SCHEDULE-001's Bearer read; an invalid session bounces to /", async ({
       page,
     }) => {
-      await page.goto("/timetable");
-      await page
-        .getByRole("button", { name: "잠실역 5번 출구 순서 이동" })
-        .dragTo(page.locator("[data-timetable-stop='s3']"), {
-          targetPosition: { x: 160, y: 88 },
-        });
-
-      await expect(page.locator("[data-timetable-stop]").nth(0)).toContainText(
-        "KSPO Dome 굿즈 라인",
-      );
-      await expect(page.locator("[data-timetable-stop]").nth(1)).toContainText(
-        "잠실 카페 mood",
-      );
-      await expect(page.locator("[data-timetable-stop]").nth(2)).toContainText(
-        "잠실역 5번 출구",
-      );
-      await expect(page.locator("[data-timetable-stop]").last()).toContainText(
-        "공연 시작",
-      );
-
-      await page.getByRole("button", { name: "수정 완료" }).click();
-      await expect(page).toHaveURL(/\/timeline$/);
-      await expect(
-        page.getByRole("button", { name: /일정 1.*KSPO Dome 굿즈 라인/ }),
-      ).toBeVisible();
+      // With a roomId, CB-11 reads SCHEDULE-001 (GET /api/rooms/{roomId}/timeline) to seed
+      // the editable draft and the scheduleId used by SCHEDULE-002/003/004. That read is
+      // Bearer-gated with no MSW mock, so the e2e fake token is rejected (401 COMMON401)
+      // and the global http interceptor clears the cookie and redirects to /. The draft
+      // recalculate / recommend / commit (incl. the 409 → CB-11′ over-time warning) flow
+      // therefore can't be exercised end-to-end without a real Kakao session — the same
+      // limitation documented for CB-04/06/07/09; it is covered by the CB-11 unit tests.
+      await page.goto("/timetable?roomId=10");
+      await expect(page).toHaveURL(/\/$/);
     });
 
-    test("over-time save is blocked and refresh resets the mock timetable", async ({
+    test("CB-09 timeline is behind SCHEDULE-001's Bearer read; an invalid session bounces to /", async ({
       page,
     }) => {
-      await page.goto("/timetable");
-      await page.getByRole("link", { name: "장소 추가" }).click();
-      await page
-        .getByRole("searchbox", { name: "장소명 또는 주소 검색" })
-        .fill("포카샵");
-      await page.getByRole("button", { name: "굿즈" }).click();
-      await page
-        .locator("[data-place-result]", { hasText: "롯데월드몰 포카샵" })
-        .getByRole("button", { name: "추가" })
-        .click();
-
-      await expect(page).toHaveURL(/\/timetable$/);
-      await expect(page.getByText("롯데월드몰 포카샵")).toBeVisible();
-      await page.getByRole("button", { name: "수정 완료" }).click();
-      await expect(page).toHaveURL(/\/timetable\?modal=warning$/);
-      const warningDialog = page.getByRole("dialog", {
-        name: "지금 일정을 전부 소화할 수 없습니다",
-      });
-      await expect(warningDialog).toBeVisible();
-      await expect(warningDialog).toBeInViewport();
-      await expect(page.getByText("초과 시간")).toBeVisible();
-      await page.getByRole("button", { name: "되돌아가서 수정" }).click();
-      await expect(page).toHaveURL(/\/timetable$/);
-      await expect(page.getByText("롯데월드몰 포카샵")).toBeVisible();
-
-      await page.reload();
-
-      await expect(page.getByText("롯데월드몰 포카샵")).toHaveCount(0);
-      await expect(page.getByText("잠실역 5번 출구 (집합)")).toBeVisible();
+      // CB-09 /timeline is now driven by SCHEDULE-001 (GET /api/rooms/{roomId}/timeline),
+      // a Bearer-gated read with no MSW mock. With a real roomId the e2e fake token is
+      // rejected (401 COMMON401) and the global http interceptor clears the cookie and
+      // redirects to /. The schedule list therefore can't be exercised end-to-end without
+      // a real Kakao session — the same limitation documented for CB-04/CB-06/CB-07. The
+      // CB-09 unit test covers the rendering (forced-locked first/last slots, route
+      // segments, warnings) by mocking the SCHEDULE-001 envelope. The CB-12 map-focus
+      // behavior that used to ride along in this test is covered by the CB-12 unit test.
+      await page.goto("/timeline?roomId=10");
+      await expect(page).toHaveURL(/\/$/);
     });
 
-    test("timeline map preview and schedule cards stay synchronized", async ({
+    test("CB-12 map shows guidance and skips the map read without a roomId", async ({
       page,
     }) => {
-      await page.goto("/timeline");
-      await expect(page.getByText("MAP PREVIEW")).toBeVisible();
-      await expect(page.getByText(/Kakao Maps fallback/)).toBeVisible();
-      await expect(page.getByRole("link", { name: /추억/ })).toHaveCount(0);
-      await expect(page.locator("polyline")).toHaveAttribute(
-        "points",
-        "22,64 40,52 55,60 62,42",
-      );
-
-      const pin3 = page.getByRole("button", {
-        name: "지도 핀 3: 잠실 카페 mood",
-      });
-      const card3 = page.getByRole("button", {
-        name: /일정 3.*잠실 카페 mood/,
-      });
-
-      await pin3.click();
-      await expect(card3).toBeInViewport();
-      await expect(pin3).toHaveAttribute("aria-current", "true");
-      await expect(card3).toHaveAttribute("data-selected", "true");
-
-      const pin2 = page.getByRole("button", {
-        name: "지도 핀 2: KSPO Dome 굿즈 라인",
-      });
-      const card2 = page.getByRole("button", {
-        name: /일정 2.*KSPO Dome 굿즈 라인/,
-      });
-      await card2.hover();
-      await expect(pin2).toHaveAttribute("data-active", "true");
-      await card2.focus();
-      await expect(pin2).toHaveAttribute("data-active", "true");
-
-      await page.getByRole("button", { name: "D+1 일정 보기" }).click();
-      await expect(
-        page.getByRole("button", { name: "D+1 일정 보기" }),
-      ).toHaveAttribute("aria-pressed", "true");
-      await expect(page.getByText("잠실 숙소 체크아웃")).toBeVisible();
-      await expect(
-        page.getByRole("button", { name: "지도 핀 1: 잠실 숙소 체크아웃" }),
-      ).toBeVisible();
-      await expect(
-        page.getByRole("button", { name: "지도 핀 1: 잠실역 5번 출구" }),
-      ).toHaveCount(0);
-      await expect(page.locator("polyline")).toHaveAttribute(
-        "points",
-        "28,48 50,44 68,60",
-      );
-
-      await page.getByRole("button", { name: "D-Day 일정 보기" }).click();
-      await page.getByRole("link", { name: "지도 열기" }).click();
-      await expect(page).toHaveURL(/\/map$/);
-      await expect(page.locator("[data-map-focus-layer]")).toHaveAttribute(
-        "data-centered-stop",
-        "s1",
-      );
-      await page.getByRole("button", { name: "다음 동선으로 이동" }).click();
-      await expect(page.getByText("KSPO Dome 굿즈 라인")).toBeVisible();
-      await expect(
-        page.getByRole("button", { name: "지도 핀 2: KSPO Dome 굿즈 라인" }),
-      ).toHaveAttribute("aria-current", "true");
-      await expect(page.locator("[data-map-focus-layer]")).toHaveAttribute(
-        "data-centered-stop",
-        "s2",
-      );
-    });
-
-    test("map fallback renders required states", async ({ page }) => {
+      // CB-12 /map is now driven by MAP-001 (GET /api/rooms/{roomId}/map) via ?roomId=.
+      // With no roomId there is nothing to load, so the screen shows guidance instead of
+      // firing the Bearer-gated read.
       await page.goto("/map");
-      await expect(page.getByText(/Kakao Maps fallback/)).toBeVisible();
+      await expect(page.getByText("지도").first()).toBeVisible();
+      await expect(page.getByText("방을 먼저 선택해 주세요")).toBeVisible();
       await expect(
-        page.getByText(
-          /NEXT_PUBLIC_KAKAO_MAP_KEY 미설정|스크립트 로딩 중 또는 실패/,
-        ),
-      ).toBeVisible();
+        page.getByRole("link", { name: "내 방으로 가기" }),
+      ).toHaveAttribute("href", "/my-rooms");
+    });
 
-      // The CB-14′ profile-edit screen is now behind PROFILE-001's Bearer prefill read,
-      // so a fake e2e session bounces it to / — asserted by the dedicated CB-14′ bounce
-      // test above, not here.
+    test("CB-12 map is behind MAP-001's Bearer read; an invalid session bounces to /", async ({
+      page,
+    }) => {
+      // With a roomId, CB-12 reads MAP-001 (GET /api/rooms/{roomId}/map) for the pins /
+      // route / bounds. That read is Bearer-gated with no MSW mock, so the e2e fake token
+      // is rejected (401 COMMON401) and the global http interceptor clears the cookie and
+      // redirects to /. Pin/route rendering is covered by the CB-12 unit tests mocking the
+      // MAP-001 envelope — the same limitation documented for CB-04/06/07/09/11.
+      await page.goto("/map?roomId=10");
+      await expect(page).toHaveURL(/\/$/);
     });
 
     test("CB-03 through CB-12 follows the Hi-Fi page flow for an already-authenticated session", async ({
@@ -671,36 +549,19 @@ test.describe("BuddyDuck runtime UI", () => {
 
       await page.getByRole("link", { name: "Open Timeline" }).click();
       await expect(page).toHaveURL(/\/timeline$/);
+      // CB-09 timeline and CB-11 timetable are now Bearer/roomId-gated (SCHEDULE-001).
+      // Reached from the static wireframe detail without a roomId, both show their guidance
+      // empty state instead of the old store-seeded fixtures; the live schedule list / draft
+      // edit (recalculate/recommend/commit + 409→CB-11′) flow needs a real session and is
+      // covered by the CB-09/CB-11 unit + bounce tests. CB-12 /map keeps its own smoke +
+      // unit test (it still reads the Zustand store).
+      await expect(page.getByText("방을 먼저 선택해 주세요")).toBeVisible();
       await page.getByRole("link", { name: /수정/ }).click();
       await expect(page).toHaveURL(/\/timetable$/);
-      for (let i = 0; i < 6; i += 1) {
-        await page
-          .getByRole("button", { name: "KSPO Dome 굿즈 라인 머무는 시간 감소" })
-          .click();
-        await page
-          .getByRole("button", { name: "잠실 카페 mood 머무는 시간 감소" })
-          .click();
-      }
-      await page.getByRole("link", { name: "장소 추가" }).click();
-      await expect(page).toHaveURL(/\/places$/);
-      await page
-        .getByRole("searchbox", { name: "장소명 또는 주소 검색" })
-        .fill("토스트");
-      await page
-        .locator("[data-place-result]", { hasText: "테이크아웃 토스트 잠실점" })
-        .getByRole("button", { name: "추가" })
-        .click();
-      await expect(page).toHaveURL(/\/timetable$/);
-      await expect(page.getByText("테이크아웃 토스트 잠실점")).toBeVisible();
-      await page.getByRole("button", { name: "수정 완료" }).click();
-      await expect(page).toHaveURL(/\/timeline$/);
-      await expect(page.getByText("테이크아웃 토스트 잠실점")).toBeVisible();
-      await page.getByRole("link", { name: "지도 CB-12", exact: true }).click();
-      await expect(page).toHaveURL(/\/map$/);
-      await page
-        .getByRole("button", { name: "지도 핀 4: 테이크아웃 토스트 잠실점" })
-        .click();
-      await expect(page.getByText("테이크아웃 토스트 잠실점")).toBeVisible();
+      await expect(page.getByText("방을 먼저 선택해 주세요")).toBeVisible();
+      await expect(
+        page.getByRole("link", { name: "내 방으로 가기" }),
+      ).toHaveAttribute("href", "/my-rooms");
     });
   });
 });
